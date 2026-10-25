@@ -9,12 +9,20 @@ A private web page for making children's coloring-book pages with your own chara
    using their names. Each version comes back as a pure black-and-white US Letter page
    (8.5 × 11 in, 300 dpi) as PDF and PNG.
 
-Internal only: `http://10.3.1.240:8090/`, from 10.3.0.0/16 plus one shared password.
+**https://vanessasbooks.ivns.lab** (just type `vanessasbooks.ivns.lab`; http redirects to https).
+Internal only: 10.3.0.0/16 plus one shared password. Fallback by IP: `http://10.3.1.240:8090/`.
+
+- **DNS:** A record `vanessasbooks.ivns.lab -> 10.3.1.240` in the ivns.lab AD zone. **No AAAA**:
+  nginx listens and allowlists on IPv4 only.
+- **TLS:** self-signed (no internal CA), `/etc/nginx/ssl/vanessasbooks.{crt,key}`, SAN
+  `vanessasbooks.ivns.lab`, **expires 2029-01-27** (825 days, Apple's maximum). Each device warns
+  once; trusting the cert on her devices removes the warning. Renew with the same `openssl req -x509`
+  command (see `deploy/nginx-coloring-studio.conf`) before then.
 
 ## How it fits on the cluster
 
 ```
-browser ──> nginx :8090 (10.3.0.0/16 only, minus 10.3.1.254 / 10.3.1.242 relays)
+browser ──> nginx :443 vanessasbooks.ivns.lab / :8090 (10.3.0.0/16 only, minus 10.3.1.254 / 10.3.1.242 relays)
               └─> coloring-studio  (FastAPI, 127.0.0.1:8095, password + Redis session)
                     ├─ upload: AV scan (clamd) -> image checks -> sheet split -> NAS
                     ├─ train:  RPUSH coloring:train:queue ──> coloring-trainer (prism)
@@ -50,6 +58,12 @@ sudo install -d -o tomasrch -g tomasrch /opt/coloring-studio
 rsync -a --delete --exclude __pycache__ coloring /opt/coloring-studio/
 sudo cp deploy/coloring-studio.service deploy/coloring-trainer.service /etc/systemd/system/
 sudo cp deploy/nginx-coloring-studio.conf /etc/nginx/sites-available/coloring-studio
+sudo cp deploy/nginx-snippet-allow.conf /etc/nginx/snippets/coloring-studio-allow.conf
+sudo cp deploy/nginx-snippet-app.conf /etc/nginx/snippets/coloring-studio-app.conf
+# cert (once, and to renew):
+sudo openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=vanessasbooks.ivns.lab" \
+  -addext "subjectAltName=DNS:vanessasbooks.ivns.lab" -addext "extendedKeyUsage=serverAuth" \
+  -keyout /etc/nginx/ssl/vanessasbooks.key -out /etc/nginx/ssl/vanessasbooks.crt
 sudo ln -sf /etc/nginx/sites-available/coloring-studio /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 sudo systemctl daemon-reload && sudo systemctl restart coloring-studio coloring-trainer

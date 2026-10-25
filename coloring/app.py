@@ -85,8 +85,10 @@ def login(body: Login, request: Request, response: Response):
         raise HTTPException(401, "wrong password")
     token = secrets.token_urlsafe(32)
     r.setex(f"coloring:session:{token}", config.SESSION_DAYS * 86400, "1")
+    # Secure over https://vanessasbooks.ivns.lab; the plain-HTTP :8090 fallback can't use it.
     response.set_cookie(SESSION_COOKIE, token, max_age=config.SESSION_DAYS * 86400,
-                        httponly=True, samesite="strict")
+                        httponly=True, samesite="strict",
+                        secure=request.headers.get("x-forwarded-proto") == "https")
     return {"ok": True}
 
 
