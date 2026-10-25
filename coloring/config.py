@@ -26,6 +26,9 @@ REDIS_PASSWORD = _env("COLORING_REDIS_PASSWORD") or _env("WHISPER_REDIS_PASSWORD
 
 # --- login (one shared password; network gate is nginx) ---
 PASSWORD_HASH = _env("COLORING_PASSWORD_HASH")     # scrypt$<salt hex>$<hash hex>, see app.hash_password
+# Set from the page ("Change password"); when present it replaces PASSWORD_HASH. The unit's
+# StateDirectory creates the folder, owned by the service user, mode 700.
+PASSWORD_FILE = Path(_env("COLORING_PASSWORD_FILE", "/var/lib/coloring-studio/password"))
 SESSION_DAYS = int(_env("COLORING_SESSION_DAYS", "30"))
 
 # --- training (ai-toolkit on prism; same setup as the PRISM cast LoRA) ---

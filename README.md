@@ -69,10 +69,13 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo systemctl daemon-reload && sudo systemctl restart coloring-studio coloring-trainer
 ```
 
-**Password:** `cd /opt/coloring-studio && /data/rch-shared-env/bin/python -m coloring.app --hash-password`,
-put the printed line in `/etc/coloring-studio.env` (root 600, template in `deploy/`), and
-restart `coloring-studio`. Existing sessions stay valid; to log everyone out, delete the
-`coloring:session:*` keys in Redis :6381.
+**Password:** she changes it on the page (**Change password**, top right). It needs the current
+password, is at least 8 characters, and logs out every other browser. It is stored as an scrypt hash
+in `/var/lib/coloring-studio/password` (service user, mode 600; the unit's `StateDirectory`).
+**If it's forgotten:** delete that file and the login falls back to `COLORING_PASSWORD_HASH` in
+`/etc/coloring-studio.env` (root 600). To set that one:
+`cd /opt/coloring-studio && /data/rch-shared-env/bin/python -m coloring.app --hash-password`.
+To log everyone out: delete the `coloring:session:*` keys in Redis :6381.
 
 **Logs:** `journalctl -t coloring-studio -f`, `journalctl -t coloring-trainer -f`.
 

@@ -76,6 +76,9 @@
   .pagecard a { color: var(--accent); font-weight: 600; text-decoration: none; }
   .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  dialog { border: 0; border-radius: 14px; padding: 24px; width: min(400px, calc(100% - 32px));
+           box-shadow: 0 12px 40px rgba(43,36,32,.25); }
+  dialog::backdrop { background: rgba(43,36,32,.35); }
   #login { max-width: 400px; margin: 6vh auto; text-align: center; }
   #login img { width: min(320px, 80%); height: auto; margin: 0 auto 8px; display: block; }
   #login form { text-align: left; }
@@ -103,6 +106,7 @@
     <button data-tab="chars">Characters</button>
   </nav>
   <div class="spacer"></div>
+  <button class="secondary" id="pwBtn">Change password</button>
   <button class="secondary" id="logout">Log out</button>
 </header>
 <main>
@@ -151,6 +155,24 @@
 </main>
 </div>
 
+<dialog id="pwDialog">
+  <h2>Change password</h2>
+  <form id="pwForm">
+    <label for="pwCur">Current password</label>
+    <input id="pwCur" type="password" autocomplete="current-password" required>
+    <label for="pwNew">New password (at least 8 characters)</label>
+    <input id="pwNew" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="pwNew2">New password again</label>
+    <input id="pwNew2" type="password" autocomplete="new-password" minlength="8" required>
+    <p class="hint">Any other computer or tablet that is logged in will need the new password.</p>
+    <div class="actions">
+      <button class="primary" type="submit">Save</button>
+      <button class="secondary" type="button" id="pwCancel">Cancel</button>
+      <span id="pwMsg" class="msg"></span>
+    </div>
+  </form>
+</dialog>
+
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -172,6 +194,17 @@ $("#loginForm").onsubmit = async e => {
   e.preventDefault(); $("#loginMsg").textContent = "";
   try { await api("/api/login", json({password: $("#pw").value})); $("#pw").value = ""; await start(); }
   catch (err) { $("#loginMsg").textContent = err.message; }
+};
+$("#pwBtn").onclick = () => { $("#pwForm").reset(); $("#pwMsg").textContent = ""; $("#pwDialog").showModal(); $("#pwCur").focus(); };
+$("#pwCancel").onclick = () => $("#pwDialog").close();
+$("#pwForm").onsubmit = async e => {
+  e.preventDefault(); const msg = $("#pwMsg"); msg.className = "msg err";
+  if ($("#pwNew").value !== $("#pwNew2").value) { msg.textContent = "The new passwords don't match."; return; }
+  try {
+    await api("/api/password", json({current: $("#pwCur").value, new: $("#pwNew").value}));
+    msg.className = "msg ok"; msg.textContent = "Password changed.";
+    setTimeout(() => $("#pwDialog").close(), 1200);
+  } catch (err) { msg.textContent = err.message; }
 };
 $("#logout").onclick = async () => { await api("/api/logout", {method: "POST"}).catch(() => {}); showLogin(); };
 

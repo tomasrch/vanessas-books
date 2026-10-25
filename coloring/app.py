@@ -54,9 +54,16 @@ def hash_password(pw: str) -> str:
     return f"scrypt${salt.hex()}${h.hex()}"
 
 
+def current_hash() -> str:
+    try:
+        return config.PASSWORD_FILE.read_text().strip()
+    except OSError:
+        return config.PASSWORD_HASH
+
+
 def check_password(pw: str) -> bool:
     try:
-        _, salt, want = config.PASSWORD_HASH.split("$")
+        _, salt, want = current_hash().split("$")
     except ValueError:
         return False          # no hash configured = nobody gets in
     got = hashlib.scrypt(pw.encode(), salt=bytes.fromhex(salt), n=2**14, r=8, p=1)
@@ -75,13 +82,9 @@ class Login(BaseModel):
 
 @app.post("/api/login")
 def login(body: Login, request: Request, response: Response):
-    ip = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
-    key = f"coloring:login-fail:{ip}"
-    if int(r.get(key) or 0) >= 10:
-        raise HTTPException(429, "too many attempts, try again in 15 minutes")
+    key = _check_attempts(request)
     if not check_password(body.password):
-        r.incr(key)
-        r.expire(key, 900)
+        _failed(key)
         raise HTTPException(401, "wrong password")
     token = secrets.token_urlsafe(32)
     r.setex(f"coloring:session:{token}", config.SESSION_DAYS * 86400, "1")
@@ -89,6 +92,47 @@ def login(body: Login, request: Request, response: Response):
     response.set_cookie(SESSION_COOKIE, token, max_age=config.SESSION_DAYS * 86400,
                         httponly=True, samesite="strict",
                         secure=request.headers.get("x-forwarded-proto") == "https")
+    return {"ok": True}
+
+
+def _client_ip(request: Request) -> str:
+    return request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+
+
+def _check_attempts(request: Request) -> str:
+    key = f"coloring:login-fail:{_client_ip(request)}"
+    if int(r.get(key) or 0) >= 10:
+        raise HTTPException(429, "too many attempts, try again in 15 minutes")
+    return key
+
+
+def _failed(key: str) -> None:
+    r.incr(key)
+    r.expire(key, 900)
+
+
+class PasswordChange(BaseModel):
+    current: str = Field(..., max_length=200)
+    new: str = Field(..., min_length=8, max_length=200)
+
+
+@app.post("/api/password", dependencies=[Depends(require_login)])
+def change_password(body: PasswordChange, request: Request):
+    key = _check_attempts(request)
+    if not check_password(body.current):
+        _failed(key)
+        raise HTTPException(401, "the current password is not right")
+    config.PASSWORD_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = config.PASSWORD_FILE.with_suffix(".tmp")
+    tmp.write_text(hash_password(body.new) + "\n")
+    tmp.chmod(0o600)
+    tmp.replace(config.PASSWORD_FILE)
+    # Everyone else is logged out; this browser stays in.
+    mine = f"coloring:session:{request.cookies.get(SESSION_COOKIE, '')}"
+    for k in r.scan_iter("coloring:session:*"):
+        if k != mine:
+            r.delete(k)
+    log.info("password changed from %s", _client_ip(request))
     return {"ok": True}
 
 

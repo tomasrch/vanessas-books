@@ -12,6 +12,9 @@ WorkingDirectory=/opt/coloring-studio
 EnvironmentFile=-/etc/rch-whisper.env
 EnvironmentFile=/etc/coloring-studio.env
 ExecStart=/data/rch-shared-env/bin/python -m uvicorn coloring.app:app --host 127.0.0.1 --port 8095 --proxy-headers --forwarded-allow-ips 127.0.0.1
+# /var/lib/coloring-studio: the password set from the page (overrides the env hash)
+StateDirectory=coloring-studio
+StateDirectoryMode=0700
 Restart=always
 RestartSec=5
 SyslogIdentifier=coloring-studio
