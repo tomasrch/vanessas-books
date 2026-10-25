@@ -16,6 +16,45 @@ MIN_AREA_FRAC = 0.01     # a pose's box must cover >= 1% of the sheet
 PAD_FRAC = 0.04          # padding around each crop, of the crop's longer side
 
 
+def is_color(img: Image.Image, frac: float = 0.02) -> bool:
+    """True when more than `frac` of the pixels are clearly coloured (not grey)."""
+    a = np.asarray(img.convert("RGB")).astype(np.int16)
+    return float(((a.max(axis=2) - a.min(axis=2)) > 40).mean()) > frac
+
+
+def isolate(img: Image.Image, pad: int = 12) -> Image.Image:
+    """Keep only the biggest drawing in a crop (drops slivers of neighbouring poses and
+    stray marks), on white, tightly cropped with `pad` px of margin."""
+    a = np.asarray(img.convert("RGB")).astype(np.int16)
+    ink = ((a.min(axis=2) < 225) | ((a.max(axis=2) - a.min(axis=2)) > 40)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(cv2.dilate(ink, np.ones((7, 7), np.uint8)), 8)
+    if n < 2:
+        return img.convert("RGB")
+    k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
+    out = np.where((lab == k)[..., None], a, 255).astype(np.uint8)
+    x, y, w, h = st[k, :4]
+    out = out[y:y + h, x:x + w]
+    out = cv2.copyMakeBorder(out, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    return Image.fromarray(out)
+
+
+def line_art(img: Image.Image, side: int = 1024) -> Image.Image:
+    """Colour cartoon -> black line art. Enlarged to `side` first so small sheet drawings
+    don't come out blocky; then difference-of-Gaussians edges (the drawing's outlines and
+    the borders between colour areas) plus anything near-black (lenses, outlines)."""
+    s = side / max(img.size)
+    if s > 1:
+        img = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
+    g = np.asarray(img.convert("L")).astype(np.float32)
+    k = max(img.size) / 400
+    dog = cv2.GaussianBlur(g, (0, 0), 0.8 * k) - 0.98 * cv2.GaussianBlur(g, (0, 0), 1.6 * k)
+    out = np.where((dog < -1.5) | (g < 55), 0, 255).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats((out == 0).astype(np.uint8), 8)
+    small = np.where(st[:, cv2.CC_STAT_AREA] < int(6 * k * k))[0]
+    out[np.isin(lab, small[small > 0])] = 255
+    return Image.fromarray(out)
+
+
 def to_line_art(img: Image.Image, level: int = INK_LEVEL) -> Image.Image:
     """Pure black lines on white: drops grey shading and any colour."""
     g = np.asarray(img.convert("L"))

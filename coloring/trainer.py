@@ -111,29 +111,36 @@ def train(r: redis.Redis, slug: str) -> None:
 
     set_progress(r, slug, "preparing")
     crop_dir = store.char_dir(slug) / "crops"
-    crops = [Image.open(p) for i, p in enumerate(sorted(crop_dir.glob("*.png")))
-             if i not in set(meta.get("excluded", []))]
+    files = sorted(crop_dir.glob("[0-9][0-9].png"))      # NN-line.png = optional drawn partner
+    kept = [i for i in range(len(files)) if i not in set(meta.get("excluded", []))]
+    crops = [Image.open(files[i]) for i in kept]
+    lines = [Image.open(p) if (p := files[i].with_name(f"{i:02d}-line.png")).is_file() else None
+             for i in kept]
     if not crops:
         raise RuntimeError("no poses selected")
-    poses = [describe_pose(c) for c in crops]
+    given = meta.get("captions") or []      # hand-written pose captions, e.g. from a reference guide
+    poses = [given[i] if i < len(given) and given[i] else describe_pose(c) for i, c in zip(kept, crops)]
     dataset = config.TRAIN / "datasets" / trigger
     output = config.TRAIN / "output"
     shutil.rmtree(dataset, ignore_errors=True)
     # A previous run's checkpoints would make ai-toolkit resume instead of starting over.
     shutil.rmtree(output / trigger, ignore_errors=True)
-    n = build(crops, trigger, meta["kind"], dataset, poses)
+    n = build(crops, trigger, meta["kind"], dataset, poses, lines=lines)
     cfg = config.TRAIN / "configs" / f"{trigger}.yaml"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(CONFIG_TEMPLATE.format(
         name=meta["name"].replace('"', "'"), kind=meta["kind"], trigger=trigger, output=output,
         dataset=dataset, rank=config.TRAIN_RANK, steps=config.TRAIN_STEPS, base=config.TRAIN_BASE))
-    log.info("%s: %d poses -> %d training images", slug, len(crops), n)
+    # ~20 steps per image, 1500-3000: a two-style colour sheet makes twice the images.
+    steps = min(3000, max(config.TRAIN_STEPS, 20 * n))
+    cfg.write_text(cfg.read_text().replace(f"steps: {config.TRAIN_STEPS}\n", f"steps: {steps}\n"))
+    log.info("%s: %d poses -> %d training images, %d steps", slug, len(crops), n, steps)
 
     set_progress(r, slug, "waiting for a free GPU")
     while (gpu := free_gpu()) is None:
         time.sleep(30)
     log.info("%s: training on GPU %d", slug, gpu)
-    set_progress(r, slug, "training", 0, config.TRAIN_STEPS)
+    set_progress(r, slug, "training", 0, steps)
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(gpu), "HF_HOME": config.TRAIN_HF_HOME,
            "PYTORCH_ALLOC_CONF": "expandable_segments:True"}
     proc = subprocess.Popen([config.TRAIN_PYTHON, "run.py", str(cfg)], cwd=config.TRAIN_TOOLKIT,
@@ -141,9 +148,9 @@ def train(r: redis.Redis, slug: str) -> None:
     tail, last = b"", 0.0
     while chunk := proc.stdout.read1(65536):
         tail = (tail + chunk)[-8192:]
-        steps = STEP_RE.findall(chunk)
-        if steps and time.time() - last > 10:
-            set_progress(r, slug, "training", int(steps[-1][0]), config.TRAIN_STEPS)
+        done = STEP_RE.findall(chunk)
+        if done and time.time() - last > 10:
+            set_progress(r, slug, "training", int(done[-1][0]), steps)
             last = time.time()
     if proc.wait() != 0:
         msg = tail.decode(errors="replace").replace("\r", "\n").strip().splitlines()[-3:]
@@ -157,7 +164,7 @@ def train(r: redis.Redis, slug: str) -> None:
     meta = store.get_character(slug)
     meta.update(status="ready", trained_at=time.time(), error=None)
     store.save_character(meta)
-    set_progress(r, slug, "done", config.TRAIN_STEPS, config.TRAIN_STEPS)
+    set_progress(r, slug, "done", steps, steps)
     log.info("%s: ready (%s)", slug, store.lora_file(meta))
 
 
