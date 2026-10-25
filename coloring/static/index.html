@@ -91,7 +91,13 @@
   #login form { text-align: left; }
   .empty { color: var(--muted); text-align: center; padding: 28px; }
   .langsw { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
-  .pose .bw { position: absolute; right: 3px; bott<body>
+  .pose .bw { position: absolute; right: 3px; bottom: 3px; font-size: 9px; font-weight: 700; background: var(--ink); color: #fff; border-radius: 4px; padding: 0 3px; }
+  .note { font-size: 12px; color: var(--warn); }
+  @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
+                              header h1 small { display: none; } main { padding: 16px 12px 48px; } }
+</style>
+</head>
+<body>
 <div id="login" class="card" hidden>
   <img id="loginLogo" src="/img/logo-es-720.png" alt="">
   <form id="loginForm">
