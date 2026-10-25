@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import urllib.request
 
 log = logging.getLogger("coloring-translate")
@@ -47,6 +48,16 @@ def labels_to_english(labels: list[str], keep: list[str] = ()) -> list[str]:
         table = {i["src"].strip(): i["en"].strip() for i in items if i.get("src") and i.get("en")}
     except Exception:
         table = {}
+    # the model sometimes drops or echoes labels in a long batch: retry those one by one
+    for l in todo:
+        if table.get(l.strip(), l).strip().lower() == l.strip().lower() and re.search(r"[a-záéíóúñ]{3}", l, re.I):
+            one = _ask("Translate this short label from a children's character sheet into short English. "
+                       f"Never translate these names: {names}. Reply as JSON "
+                       '{"en": "<English>"}. Label: ' + l)
+            try:
+                table[l.strip()] = json.loads(one or "")["en"].strip() or l
+            except Exception:
+                pass
     return [table.get(l.strip(), l) for l in labels]
 
 

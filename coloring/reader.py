@@ -211,6 +211,19 @@ def _section_for(box, text, label_h: float, hor, ver) -> str:
     return max(heads, key=lambda t: t["box"][3])["text"] if heads else ""
 
 
+# Her sheets tag every detail "(característica)" and every prop "(hábitat)",
+# "(alimento)", "(naturaleza)" - the surest sign a drawing isn't a pose.
+NOT_POSE = re.compile(r"caracter|h[aá]bitat|alimento|naturaleza|paisaje|characteristic|habitat|"
+                      r"\bfood\b|\bnature\b|landscape|"
+                      # body-part close-ups and props whose tag OCR lost
+                      r"\b(ojos|eyes|plumas|feathers?|plumage|cola|tail|piel|skin|fur|pelaje|alas?|wings?|"
+                      r"aletas?|fins?|p[eé]talos|petals|estambre|stamen|tronco|trunk|semillas|seeds|pico|beak|"
+                      r"pecho|chest|caparaz\w*|shell|garras|claws|n[eé]ctar|nectar|forest|bosque|night|noche|"
+                      r"nocturn\w*|nest\w*|nido|insect\w*|h[aá]bitos|habits|capullo|bud)\b", re.I)
+EXPRESSION = re.compile(r"\b(happy|wink\w*|surprised?|content\w*|seren\w*|smil\w*|sad|angry|"
+                        r"sleepy|laugh\w*|excited|joyful|cheerful|shy|scared|curious face)\b", re.I)
+
+
 def caption_from_label(label: str, section: str) -> str:
     c = label.lower()
     c = re.sub(r"\b3\s*/\s*4\b", "three-quarter", c)
@@ -220,12 +233,12 @@ def caption_from_label(label: str, section: str) -> str:
     sec = section.lower()
     if not c:
         return ""
-    if "express" in sec:
+    if c.endswith(" view") or c.endswith(" views"):
+        return f"{c}, full body"
+    if "express" in sec or EXPRESSION.search(c) and len(c.split()) <= 3:
         return f"head and shoulders, {c}"
     if "close" in sec or "detail" in sec:
         return f"close-up, {c}"
-    if "turnaround" in sec or c.endswith(" view"):
-        return f"{c}, full body"
     return c
 
 
@@ -260,7 +273,9 @@ def read_sheet(img: Image.Image, keep_names: list[str] = ()) -> list[Item]:
     for it in items:
         lab_en, sec_en = en.get(it.label, it.label), en.get(it.section, it.section)
         it.caption = caption_from_label(lab_en, sec_en)
-        if not it.skip and SKIP_SECTION.search(sec_en):
+        if not it.skip and (NOT_POSE.search(it.label) or NOT_POSE.search(lab_en)):
+            it.skip, it.reason = True, "detail or prop"
+        elif not it.skip and SKIP_SECTION.search(sec_en):
             it.skip, it.reason = True, f"in \u201c{it.section}\u201d"
         # Detail panels: a face/head/hair close-up teaches the character; an eye,
         # a toe pad or a pair of sunglasses on its own doesn't.
