@@ -67,7 +67,9 @@ def _place(crop: Image.Image, size: tuple[int, int], rng: random.Random) -> tupl
     y = rng.randint(0, h - img.height)
     canvas = Image.new(img.mode if img.mode in ("L", "RGB") else "RGB", size, "white")
     canvas.paste(img, (x, y))
-    framing = "full body, large in frame" if frac >= 0.75 else "full body, small in frame"
+    # Size only: whether it's full body, head and shoulders or a close-up is the pose
+    # caption's job (a "full body" here contradicted every head-and-shoulders crop).
+    framing = "large in frame" if frac >= 0.75 else "small in frame"
     return canvas, framing
 
 
