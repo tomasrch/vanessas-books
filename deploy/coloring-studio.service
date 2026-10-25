@@ -1,0 +1,20 @@
+# Coloring Studio web app (127.0.0.1:8095; nginx :8090 is the only way in).
+[Unit]
+Description=Coloring Studio web app
+After=network-online.target redis-whisper.service rch-prism.service
+RequiresMountsFor=/mnt/Medina/VANESSA-BOOKS
+
+[Service]
+User=tomasrch
+Group=tomasrch
+WorkingDirectory=/opt/coloring-studio
+# WHISPER_REDIS_* (broker :6381) + the login hash
+EnvironmentFile=-/etc/rch-whisper.env
+EnvironmentFile=/etc/coloring-studio.env
+ExecStart=/data/rch-shared-env/bin/python -m uvicorn coloring.app:app --host 127.0.0.1 --port 8095 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=5
+SyslogIdentifier=coloring-studio
+
+[Install]
+WantedBy=multi-user.target

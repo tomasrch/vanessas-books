@@ -1,0 +1,21 @@
+# Trains character LoRAs from the coloring:train:queue, one at a time, on a prism GPU with room.
+[Unit]
+Description=Coloring Studio character trainer
+After=network-online.target redis-whisper.service ollama.service
+RequiresMountsFor=/mnt/Medina/VANESSA-BOOKS
+
+[Service]
+User=tomasrch
+Group=tomasrch
+WorkingDirectory=/opt/coloring-studio
+EnvironmentFile=-/etc/rch-whisper.env
+EnvironmentFile=/etc/coloring-studio.env
+ExecStart=/data/rch-shared-env/bin/python -m coloring.trainer
+Restart=always
+RestartSec=30
+# a run is ~1 h of GPU work; let it finish its current save on stop
+TimeoutStopSec=60
+SyslogIdentifier=coloring-trainer
+
+[Install]
+WantedBy=multi-user.target

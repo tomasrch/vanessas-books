@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coloring Studio</title>
+<style>
+  :root {
+    --bg: #faf7f2; --card: #ffffff; --ink: #1f1d1a; --muted: #6d675f; --line: #e6e0d6;
+    --accent: #3b6fd8; --accent-ink: #ffffff; --ok: #2e8b57; --warn: #b7791f; --bad: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 24px; padding: 14px 24px;
+           background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 20px; margin: 0; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; font: inherit;
+               color: var(--muted); cursor: pointer; }
+  nav button.on { background: #eef3fd; color: var(--accent); font-weight: 600; }
+  header .spacer { flex: 1; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  section { display: none; } section.on { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 4px 0 12px; }
+  label { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 4px; }
+  input[type=text], input[type=password], textarea, select {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: #fff; }
+  textarea { min-height: 96px; resize: vertical; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; } .row > * { flex: 1 1 220px; }
+  button.primary, button.secondary, button.danger {
+    border: 0; border-radius: 8px; padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); }
+  button.secondary { background: #eef0f3; color: var(--ink); }
+  button.danger { background: none; color: var(--bad); padding: 6px 8px; font-weight: 500; }
+  button:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  .msg { font-size: 14px; } .msg.err { color: var(--bad); } .msg.ok { color: var(--ok); }
+  .chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+  .char-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .char-head h3 { margin: 0; font-size: 17px; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: #eef0f3; color: var(--muted); white-space: nowrap; }
+  .badge.ready { background: #e7f5ec; color: var(--ok); } .badge.training, .badge.queued { background: #fdf3e1; color: var(--warn); }
+  .badge.failed { background: #fbe9e7; color: var(--bad); }
+  .poses { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 12px 0; }
+  .pose { border: 2px solid var(--line); border-radius: 8px; background: #fff; padding: 4px; cursor: pointer; position: relative; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; }
+  .pose img { max-width: 100%; max-height: 100%; }
+  .pose.off { opacity: .3; border-style: dashed; }
+  .pose.locked { cursor: default; }
+  .bar { height: 8px; background: #eef0f3; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .5s; }
+  .pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .pick label { margin: 0; font-weight: 500; border: 2px solid var(--line); border-radius: 10px; padding: 8px;
+                display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; background: #fff; }
+  .pick label.on { border-color: var(--accent); background: #f4f7fe; }
+  .pick img { height: 80px; } .pick input { display: none; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
+  .pagecard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .pagecard .img { background: #fff; aspect-ratio: 8.5/11; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); }
+  .pagecard .img.land { aspect-ratio: 11/8.5; }
+  .pagecard img { max-width: 100%; max-height: 100%; }
+  .pagecard .body { padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .pagecard .scene { color: var(--ink); } .pagecard .who { color: var(--muted); font-size: 13px; }
+  .pagecard .links { display: flex; gap: 12px; align-items: center; margin-top: auto; }
+  .pagecard a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #login { max-width: 380px; margin: 12vh auto; }
+  .empty { color: var(--muted); text-align: center; padding: 28px; }
+  @media (max-width: 600px) { header { flex-wrap: wrap; gap: 8px; } main { padding: 16px 12px 48px; } }
+</style>
+</head>
+<body>
+<div id="login" class="card" hidden>
+  <h2>Coloring Studio</h2>
+  <form id="loginForm">
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <div class="actions"><button class="primary" type="submit">Log in</button><span id="loginMsg" class="msg err"></span></div>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header>
+  <h1>Coloring Studio</h1>
+  <nav>
+    <button data-tab="make" class="on">Make a page</button>
+    <button data-tab="pages">My pages</button>
+    <button data-tab="chars">Characters</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="secondary" id="logout">Log out</button>
+</header>
+<main>
+
+<section id="tab-make" class="on">
+  <div class="card">
+    <h2>Make a coloring page</h2>
+    <p class="hint">Pick the characters, then describe the scene in your own words. Use their names, e.g.
+      “Pip and Lulu playing checkers at a little table in the garden.”</p>
+    <label>Characters in this scene</label>
+    <div id="pick" class="pick"></div>
+    <label for="scene">What is happening in the scene?</label>
+    <textarea id="scene" maxlength="600" placeholder="Pip and Lulu playing checkers at a little table in the garden, butterflies around them"></textarea>
+    <div class="row">
+      <div><label for="orient">Page</label>
+        <select id="orient"><option value="portrait">Portrait (8.5 × 11 in, tall)</option><option value="landscape">Landscape (11 × 8.5 in, wide)</option></select></div>
+      <div><label for="vars">How many versions to try</label>
+        <select id="vars"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+    </div>
+    <div class="actions"><button class="primary" id="makeBtn">Create pages</button><span id="makeMsg" class="msg"></span></div>
+  </div>
+</section>
+
+<section id="tab-pages">
+  <div id="gallery" class="gallery"></div>
+</section>
+
+<section id="tab-chars">
+  <div class="card">
+    <h2>Add a character</h2>
+    <p class="hint">Upload a character sheet: the same character drawn in several poses (front, side, back, waving…)
+      in black lines on a white background. More poses teach the character better. Training takes about an hour.</p>
+    <form id="addForm">
+      <div class="row">
+        <div><label for="cname">Name</label><input id="cname" type="text" maxlength="40" placeholder="Pip" required></div>
+        <div><label for="ckind">What it is</label><input id="ckind" type="text" maxlength="40" placeholder="hedgehog, girl, dragon…" required></div>
+      </div>
+      <label for="csheet">Character sheet (PNG or JPG)</label>
+      <input id="csheet" type="file" accept="image/png,image/jpeg,image/webp" required>
+      <div class="actions"><button class="primary" type="submit" id="addBtn">Upload</button><span id="addMsg" class="msg"></span></div>
+    </form>
+  </div>
+  <div id="chars" class="chars"></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let characters = [], pages = [], picked = new Set(), timer = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {credentials: "same-origin", ...opts});
+  if (res.status === 401 && path !== "/api/login") { showLogin(); throw new Error("please log in"); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : (data.detail?.[0]?.msg || "something went wrong"));
+  return data;
+}
+const json = body => ({method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+
+function showLogin() { $("#app").hidden = true; $("#login").hidden = false; $("#pw").focus(); clearTimeout(timer); }
+async function start() { $("#login").hidden = true; $("#app").hidden = false; await refresh(); }
+
+$("#loginForm").onsubmit = async e => {
+  e.preventDefault(); $("#loginMsg").textContent = "";
+  try { await api("/api/login", json({password: $("#pw").value})); $("#pw").value = ""; await start(); }
+  catch (err) { $("#loginMsg").textContent = err.message; }
+};
+$("#logout").onclick = async () => { await api("/api/logout", {method: "POST"}).catch(() => {}); showLogin(); };
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === "tab-" + b.dataset.tab));
+});
+
+async function refresh() {
+  clearTimeout(timer);
+  try { [characters, pages] = await Promise.all([api("/api/characters"), api("/api/pages")]); } catch { return; }
+  drawChars(); drawPick(); drawPages();
+  const busy = characters.some(c => ["queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status));
+  timer = setTimeout(refresh, busy ? 5000 : 30000);
+}
+
+const STATUS = {new: "Not trained yet", queued: "Waiting to train", training: "Training", ready: "Ready", failed: "Training failed"};
+function drawChars() {
+  const box = $("#chars");
+  if (!characters.length) { box.innerHTML = '<div class="empty card">No characters yet. Upload a character sheet above.</div>'; return; }
+  box.innerHTML = characters.map(c => {
+    const busy = ["queued","training"].includes(c.status);
+    const p = c.progress || {};
+    const pct = p.total > 0 ? Math.round(100 * p.step / p.total) : 0;
+    let line = "";
+    if (c.status === "queued") line = `In line to train${c.queue_position > 1 ? ` (#${c.queue_position})` : ""}…`;
+    if (c.status === "training") line = p.stage === "training" ? `Learning ${esc(c.name)}… ${pct}%` : esc(p.stage || "starting") + "…";
+    if (c.status === "failed") line = `<span class="msg err">${esc(c.error || "failed")}</span>`;
+    if (c.status === "new") line = "Click a pose to leave it out of training, then press Train.";
+    if (c.status === "ready") line = `Ready to use. Trained ${new Date(c.trained_at * 1000).toLocaleDateString()}.`;
+    const poses = Array.from({length: c.crops}, (_, i) =>
+      `<div class="pose ${c.excluded.includes(i) ? "off" : ""} ${busy ? "locked" : ""}" data-slug="${c.slug}" data-i="${i}" title="${c.excluded.includes(i) ? "left out" : "used for training"}">
+         <img loading="lazy" src="/api/characters/${c.slug}/crops/${i}" alt="pose ${i + 1}"></div>`).join("");
+    return `<div class="card">
+      <div class="char-head"><h3>${esc(c.name)} <span class="hint">(${esc(c.kind)})</span></h3><span class="badge ${c.status}">${STATUS[c.status] || c.status}</span></div>
+      <div class="poses">${poses}</div>
+      <div class="hint">${line}</div>
+      ${c.status === "training" && p.stage === "training" ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
+      <div class="actions">
+        ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? "Train again" : "Train"}</button>`}
+        <a class="hint" href="/api/characters/${c.slug}/sheet" target="_blank">View sheet</a>
+        <span class="spacer" style="flex:1"></span>
+        ${busy ? "" : `<button class="danger" data-del="${c.slug}">Remove</button>`}
+      </div></div>`;
+  }).join("");
+  box.querySelectorAll(".pose:not(.locked)").forEach(el => el.onclick = async () => {
+    const c = characters.find(x => x.slug === el.dataset.slug), i = +el.dataset.i;
+    const ex = new Set(c.excluded); ex.has(i) ? ex.delete(i) : ex.add(i);
+    try { Object.assign(c, await api(`/api/characters/${c.slug}/poses`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({excluded: [...ex]})})); drawChars(); }
+    catch (err) { alert(err.message); }
+  });
+  box.querySelectorAll("[data-train]").forEach(b => b.onclick = async () => {
+    const c = characters.find(x => x.slug === b.dataset.train);
+    if (c.status === "ready" && !confirm(`Train ${c.name} again? Pages already made are kept.`)) return;
+    b.disabled = true; try { await api(`/api/characters/${c.slug}/train`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
+  });
+  box.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    const c = characters.find(x => x.slug === b.dataset.del);
+    if (!confirm(`Remove ${c.name}? The sheet is kept in the archive on the NAS.`)) return;
+    try { await api(`/api/characters/${c.slug}`, {method: "DELETE"}); } catch (err) { alert(err.message); } refresh();
+  });
+}
+
+function drawPick() {
+  const ready = characters.filter(c => c.status === "ready");
+  picked = new Set([...picked].filter(s => ready.some(c => c.slug === s)));
+  $("#pick").innerHTML = ready.length ? ready.map(c => `
+    <label class="${picked.has(c.slug) ? "on" : ""}"><input type="checkbox" value="${c.slug}" ${picked.has(c.slug) ? "checked" : ""}>
+      <img src="/api/characters/${c.slug}/crops/${c.excluded.includes(0) ? (c.crops > 1 ? 1 : 0) : 0}" alt=""><span>${esc(c.name)}</span></label>`).join("")
+    : '<div class="hint">No trained characters yet - add one under Characters.</div>';
+  $("#pick").querySelectorAll("input").forEach(i => i.onchange = () => {
+    i.checked ? picked.add(i.value) : picked.delete(i.value);
+    if (picked.size > 4) { picked.delete(i.value); i.checked = false; alert("Up to 4 characters per page."); }
+    i.closest("label").classList.toggle("on", i.checked);
+  });
+}
+
+$("#makeBtn").onclick = async () => {
+  const msg = $("#makeMsg"); msg.className = "msg"; msg.textContent = "";
+  if (!picked.size) { msg.className = "msg err"; msg.textContent = "Pick at least one character."; return; }
+  if ($("#scene").value.trim().length < 3) { msg.className = "msg err"; msg.textContent = "Describe the scene."; return; }
+  $("#makeBtn").disabled = true;
+  try {
+    const made = await api("/api/pages", json({characters: [...picked], scene: $("#scene").value, orientation: $("#orient").value, variations: +$("#vars").value}));
+    msg.className = "msg ok"; msg.textContent = `${made.length} page${made.length > 1 ? "s" : ""} on the way - see My pages.`;
+    await refresh();
+    document.querySelector('nav button[data-tab="pages"]').click();
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+  $("#makeBtn").disabled = false;
+};
+
+function drawPages() {
+  const g = $("#gallery");
+  if (!pages.length) { g.innerHTML = '<div class="empty card" style="grid-column:1/-1">No pages yet. Make one under “Make a page”.</div>'; return; }
+  g.innerHTML = pages.map(p => {
+    const land = p.orientation === "landscape" ? "land" : "";
+    let img = '<div class="spinner"></div>';
+    if (p.status === "done") img = `<a href="/api/pages/${p.id}/png" target="_blank"><img loading="lazy" src="/api/pages/${p.id}/thumb" alt="coloring page"></a>`;
+    if (p.status === "failed") img = `<div class="msg err" style="padding:12px">${esc(p.error || "failed")}</div>`;
+    return `<div class="pagecard"><div class="img ${land}">${img}</div><div class="body">
+      <div class="scene">${esc(p.scene)}</div><div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString()}</div>
+      <div class="links">${p.status === "done" ? `<a href="/api/pages/${p.id}/pdf">PDF</a><a href="/api/pages/${p.id}/png" download>PNG</a>` : `<span class="hint">${p.status === "failed" ? "" : "Drawing…"}</span>`}
+        <span style="flex:1"></span><button class="danger" data-pdel="${p.id}">Remove</button></div></div></div>`;
+  }).join("");
+  g.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => {
+    if (!confirm("Remove this page?")) return;
+    try { await api(`/api/pages/${b.dataset.pdel}`, {method: "DELETE"}); } catch (err) { alert(err.message); } refresh();
+  });
+}
+
+$("#addForm").onsubmit = async e => {
+  e.preventDefault(); const msg = $("#addMsg"); msg.className = "msg"; msg.textContent = "Uploading…"; $("#addBtn").disabled = true;
+  const fd = new FormData(); fd.append("name", $("#cname").value.trim()); fd.append("kind", $("#ckind").value.trim()); fd.append("sheet", $("#csheet").files[0]);
+  try {
+    const c = await api("/api/characters", {method: "POST", body: fd});
+    msg.className = "msg ok"; msg.textContent = `Found ${c.crops} pose${c.crops > 1 ? "s" : ""} for ${c.name}. Check them below, then press Train.`;
+    e.target.reset(); await refresh();
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+  $("#addBtn").disabled = false;
+};
+
+api("/api/me").then(start).catch(() => showLogin());
+</script>
+</body>
+</html>
