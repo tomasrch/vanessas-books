@@ -101,3 +101,32 @@ def build(crops: list[Image.Image], trigger: str, class_word: str, out_dir: Path
                 (out_dir / f"{stem}.txt").write_text(caption + "\n")
                 n += 1
     return n
+
+
+def build_composites(members: list[dict], out_dir: Path, count: int, seed: int = 1) -> int:
+    """Side-by-side pictures of cast members, captioned with who is where:
+    "<tA> <kindA> on the left and <tB> <kindB> on the right, ...". These are what
+    teach a joint LoRA to keep two characters apart in one scene.
+
+    members: [{trigger, kind, images: [line-art PIL images]}]"""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(seed)
+    n = 0
+    for k in range(count):
+        group = rng.sample(members, min(len(members), 3 if len(members) > 2 and k % 3 == 2 else 2))
+        w, h = rng.choice([(1024, 768), (1024, 1024), (1280, 768)])
+        canvas = Image.new("L", (w, h), 255)
+        slot = w // len(group)
+        for i, m in enumerate(group):
+            img = rng.choice(m["images"]).convert("L")
+            s = min(slot * 0.9 / img.width, h * rng.choice([0.85, 0.7]) / img.height)
+            img = img.resize((max(1, int(img.width * s)), max(1, int(img.height * s))), Image.LANCZOS)
+            x = i * slot + (slot - img.width) // 2
+            y = h - img.height - rng.randint(0, max(0, h - img.height))
+            canvas.paste(img, (x, max(0, min(y, h - img.height))))
+        where = ["on the left", "on the right"] if len(group) == 2 else ["on the left", "in the middle", "on the right"]
+        who = " and ".join(f"{m['trigger']} {m['kind']} {pos}" for m, pos in zip(group, where))
+        canvas.save(out_dir / f"cast_{k:03d}.png")
+        (out_dir / f"cast_{k:03d}.txt").write_text(f"{who}, together, {STYLE}\n")
+        n += 1
+    return n

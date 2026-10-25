@@ -16,6 +16,7 @@ import re
 import secrets
 import shutil
 import time
+import unicodedata
 from pathlib import Path
 
 from . import config
@@ -40,6 +41,8 @@ def _read_json(path: Path) -> dict | None:
 # --- characters --------------------------------------------------------------
 
 def slugify(name: str) -> str:
+    # "Coquí puertorriqueño" -> "coqui-puertorriqueno" (accents folded, not dropped)
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:24].strip("-")
     return s or "character"
 
@@ -88,7 +91,8 @@ def list_characters() -> list[dict]:
             m = _read_json(d / "meta.json")
             if m:
                 out.append(m)
-    return sorted(out, key=lambda m: m["created"])
+    # her own characters (no roster code, e.g. Vanessa) first, then the roster in CB order
+    return sorted(out, key=lambda m: (bool(m.get("code")), m.get("code") or "", m["created"]))
 
 
 def archive_character(slug: str) -> None:
@@ -136,3 +140,58 @@ def list_pages(limit: int = 200) -> list[dict]:
         return []
     ids = sorted((d.name for d in config.PAGES.iterdir() if PAGE_ID_RE.match(d.name)), reverse=True)
     return [m for m in (get_page(i) for i in ids[:limit]) if m]
+
+
+# --- casts: characters trained together so they stay distinct in one scene ---------
+# casts/<id>.json {id, members: [slugs], status: new|queued|training|ready|failed,
+#                  trained_at, error}; LoRA loras/cbcast_<id>.safetensors
+
+def cast_id(slugs) -> str:
+    import hashlib
+    return hashlib.sha1("+".join(sorted(set(slugs))).encode()).hexdigest()[:10]
+
+
+def cast_trigger(cid: str) -> str:
+    return f"cbcast_{cid}"
+
+
+def _cast_path(cid: str) -> Path:
+    if not re.fullmatch(r"[0-9a-f]{10}", cid):
+        raise ValueError("bad cast id")
+    return config.ROOT / "casts" / f"{cid}.json"
+
+
+def get_cast(cid: str) -> dict | None:
+    return _read_json(_cast_path(cid))
+
+
+def save_cast(meta: dict) -> None:
+    p = _cast_path(meta["id"])
+    p.parent.mkdir(exist_ok=True)
+    _write_json(p, meta)
+
+
+def cast_for(slugs) -> dict:
+    """The cast record for this group of characters, created on first use."""
+    cid = cast_id(slugs)
+    m = get_cast(cid)
+    if not m:
+        m = {"id": cid, "members": sorted(set(slugs)), "status": "new", "created": time.time(),
+             "trained_at": None, "error": None}
+        save_cast(m)
+    return m
+
+
+def cast_lora(cid: str) -> Path:
+    return config.LORAS / f"{cast_trigger(cid)}.safetensors"
+
+
+def cast_is_current(m: dict) -> bool:
+    """Ready, its LoRA on disk, and trained after every member's own last training."""
+    if m.get("status") != "ready" or not cast_lora(m["id"]).is_file():
+        return False
+    for slug in m["members"]:
+        c = get_character(slug)
+        if not c or (c.get("trained_at") or 0) > (m.get("trained_at") or 0):
+            return False
+    return True

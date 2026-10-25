@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,17 +90,15 @@
   #login img { width: min(320px, 80%); height: auto; margin: 0 auto 8px; display: block; }
   #login form { text-align: left; }
   .empty { color: var(--muted); text-align: center; padding: 28px; }
-  @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
-                              header h1 small { display: none; } main { padding: 16px 12px 48px; } }
-</style>
-</head>
-<body>
+  .langsw { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .pose .bw { position: absolute; right: 3px; bott<body>
 <div id="login" class="card" hidden>
   <img src="/img/logo-640.png" alt="Vanessa's Coloring Books - Puerto Rican Animals &amp; Lore">
   <form id="loginForm">
-    <label for="pw">Password</label>
+    <label for="pw" data-i18n="password">Contraseña</label>
     <input id="pw" type="password" autocomplete="current-password" required>
-    <div class="actions"><button class="primary" type="submit">Log in</button><span id="loginMsg" class="msg err"></span></div>
+    <div class="actions"><button class="primary" type="submit" data-i18n="login">Entrar</button>
+      <button class="langsw" type="button" data-lang-toggle></button><span id="loginMsg" class="msg err"></span></div>
   </form>
 </div>
 
@@ -108,37 +106,37 @@
 <header>
   <a class="brand" href="/"><img src="/img/logo-256.png" alt=""><h1>Vanessa's Coloring Books<small>Puerto Rican Animals &amp; Lore</small></h1></a>
   <nav>
-    <button data-tab="make" class="on">Make a page</button>
-    <button data-tab="pages">My pages</button>
-    <button data-tab="chars">Characters</button>
+    <button data-tab="make" class="on" data-i18n="tabMake">Crear página</button>
+    <button data-tab="pages" data-i18n="tabPages">Mis páginas</button>
+    <button data-tab="chars" data-i18n="tabChars">Personajes</button>
   </nav>
   <div class="spacer"></div>
-  <button class="secondary" id="pwBtn">Change password</button>
-  <button class="secondary" id="logout">Log out</button>
+  <button class="langsw" type="button" data-lang-toggle></button>
+  <button class="secondary" id="pwBtn" data-i18n="changePw">Cambiar contraseña</button>
+  <button class="secondary" id="logout" data-i18n="logout">Salir</button>
 </header>
 <main>
 
 <section id="tab-make" class="on">
   <div class="card">
-    <h2>Make a coloring page</h2>
-    <p class="hint">Pick the characters, then describe the scene in your own words, using their names - e.g.
-      “Coquí and Manny the manatee splashing by the beach, El Morro in the background.”</p>
-    <label>Characters in this scene</label>
+    <h2 data-i18n="makeTitle">Crear una página para colorear</h2>
+    <p class="hint" data-i18n="makeHint"></p>
+    <label data-i18n="sceneChars">Personajes en la escena</label>
     <div id="pick" class="pick"></div>
-    <label for="scene">What is happening in the scene?</label>
-    <textarea id="scene" maxlength="600" placeholder="Coquí and Manny the manatee playing in the waves at the beach, El Morro in the background"></textarea>
-    <label>What to make</label>
+    <label for="scene" data-i18n="sceneWhat">¿Qué pasa en la escena?</label>
+    <textarea id="scene" maxlength="600" data-i18n-ph="scenePh"></textarea>
+    <label data-i18n="whatToMake">Qué crear</label>
     <div class="kinds">
-      <label class="on"><input type="radio" name="kind" value="page" checked><b>Coloring page</b><span>black &amp; white lines to color in</span></label>
-      <label><input type="radio" name="kind" value="cover"><b>Book cover</b><span>full color, room at the top for the title</span></label>
+      <label class="on"><input type="radio" name="kind" value="page" checked><b data-i18n="kindPage"></b><span data-i18n="kindPageHint"></span></label>
+      <label><input type="radio" name="kind" value="cover"><b data-i18n="kindCover"></b><span data-i18n="kindCoverHint"></span></label>
     </div>
     <div class="row">
-      <div><label for="orient">Page</label>
-        <select id="orient"><option value="portrait">Portrait (8.5 × 11 in, tall)</option><option value="landscape">Landscape (11 × 8.5 in, wide)</option></select></div>
-      <div><label for="vars">How many versions to try</label>
+      <div><label for="orient" data-i18n="pageLabel">Página</label>
+        <select id="orient"><option value="portrait" data-i18n="portrait"></option><option value="landscape" data-i18n="landscape"></option></select></div>
+      <div><label for="vars" data-i18n="howMany">Cuántas versiones probar</label>
         <select id="vars"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
     </div>
-    <div class="actions"><button class="primary" id="makeBtn">Create pages</button><span id="makeMsg" class="msg"></span></div>
+    <div class="actions"><button class="primary" id="makeBtn" data-i18n="create">Crear</button><span id="makeMsg" class="msg"></span></div>
   </div>
 </section>
 
@@ -148,17 +146,18 @@
 
 <section id="tab-chars">
   <div class="card">
-    <h2>Add a character</h2>
-    <p class="hint">Upload a character sheet: the same character drawn in several poses (front, side, back, waving…)
-      in black lines on a white background. More poses teach the character better. Training takes about an hour.</p>
+    <h2 data-i18n="addTitle">Añadir un personaje</h2>
+    <p class="hint" data-i18n="addHint"></p>
     <form id="addForm">
       <div class="row">
-        <div><label for="cname">Name</label><input id="cname" type="text" maxlength="40" placeholder="Coquí" required></div>
-        <div><label for="ckind">What it is</label><input id="ckind" type="text" maxlength="40" placeholder="frog, manatee, sea turtle, girl…" required></div>
+        <div><label for="cname" data-i18n="name">Nombre</label><input id="cname" type="text" maxlength="40" data-i18n-ph="namePh" required></div>
+        <div><label for="ckind" data-i18n="whatItIs">Qué es</label><input id="ckind" type="text" maxlength="40" data-i18n-ph="kindPh" required></div>
       </div>
-      <label for="csheet">Character sheet (PNG or JPG)</label>
+      <label for="csheet" data-i18n="sheetLabel">Ficha del personaje (PNG o JPG)</label>
       <input id="csheet" type="file" accept="image/png,image/jpeg,image/webp" required>
-      <div class="actions"><button class="primary" type="submit" id="addBtn">Upload</button><span id="addMsg" class="msg"></span></div>
+      <label for="csheetbw" data-i18n="sheetBwLabel"></label>
+      <input id="csheetbw" type="file" accept="image/png,image/jpeg,image/webp">
+      <div class="actions"><button class="primary" type="submit" id="addBtn" data-i18n="upload">Subir</button><span id="addMsg" class="msg"></span></div>
     </form>
   </div>
   <div id="chars" class="chars"></div>
@@ -168,27 +167,122 @@
 </div>
 
 <dialog id="pwDialog">
-  <h2>Change password</h2>
+  <h2 data-i18n="changePw">Cambiar contraseña</h2>
   <form id="pwForm">
-    <label for="pwCur">Current password</label>
+    <label for="pwCur" data-i18n="pwCurrent"></label>
     <input id="pwCur" type="password" autocomplete="current-password" required>
-    <label for="pwNew">New password (at least 8 characters)</label>
+    <label for="pwNew" data-i18n="pwNew"></label>
     <input id="pwNew" type="password" autocomplete="new-password" minlength="8" required>
-    <label for="pwNew2">New password again</label>
+    <label for="pwNew2" data-i18n="pwAgain"></label>
     <input id="pwNew2" type="password" autocomplete="new-password" minlength="8" required>
-    <p class="hint">Any other computer or tablet that is logged in will need the new password.</p>
+    <p class="hint" data-i18n="pwHint"></p>
     <div class="actions">
-      <button class="primary" type="submit">Save</button>
-      <button class="secondary" type="button" id="pwCancel">Cancel</button>
+      <button class="primary" type="submit" data-i18n="save">Guardar</button>
+      <button class="secondary" type="button" id="pwCancel" data-i18n="cancel">Cancelar</button>
       <span id="pwMsg" class="msg"></span>
     </div>
   </form>
 </dialog>
 
 <script>
+const I18N = {
+  es: {
+    password: "Contraseña", login: "Entrar", tabMake: "Crear página", tabPages: "Mis páginas", tabChars: "Personajes",
+    changePw: "Cambiar contraseña", logout: "Salir", other: "English",
+    makeTitle: "Crear una página para colorear",
+    makeHint: "Escoge los personajes y describe la escena con tus palabras, usando sus nombres. Por ejemplo: “El coquí y el manatí jugando en las olas de la playa, con El Morro al fondo.”",
+    sceneChars: "Personajes en la escena", sceneWhat: "¿Qué pasa en la escena?",
+    scenePh: "El coquí y el manatí jugando en las olas de la playa, con El Morro al fondo",
+    whatToMake: "Qué crear", kindPage: "Página para colorear", kindPageHint: "líneas en blanco y negro para colorear",
+    kindCover: "Portada del libro", kindCoverHint: "a todo color, con espacio arriba para el título",
+    pageLabel: "Página", portrait: "Vertical (8.5 × 11 pulg.)", landscape: "Horizontal (11 × 8.5 pulg.)",
+    howMany: "Cuántas versiones probar", create: "Crear",
+    addTitle: "Añadir un personaje",
+    addHint: "Sube la ficha del personaje: el mismo personaje en varias poses (de frente, de lado, de espaldas…). Si tienes la misma ficha en blanco y negro, súbela también. El entrenamiento tarda más o menos una hora.",
+    name: "Nombre", namePh: "Coquí", whatItIs: "Qué es", kindPh: "rana, manatí, tortuga, niña…",
+    sheetLabel: "Ficha del personaje (PNG o JPG)", sheetBwLabel: "Versión en blanco y negro de la misma ficha (opcional)",
+    upload: "Subir", uploading: "Subiendo…",
+    uploaded: n => `Se subió ${n}. Leyendo la ficha… en un momento aparecen las poses abajo.`,
+    pwCurrent: "Contraseña actual", pwNew: "Contraseña nueva (mínimo 8 caracteres)", pwAgain: "Repite la contraseña nueva",
+    pwHint: "Cualquier otra computadora o tableta conectada necesitará la contraseña nueva.",
+    save: "Guardar", cancel: "Cancelar", pwMismatch: "Las contraseñas nuevas no coinciden.", pwChanged: "Contraseña cambiada.",
+    st: {reading: "Leyendo la ficha", new: "Sin entrenar", queued: "En espera", training: "Entrenando", ready: "Lista", failed: "Falló"},
+    lineReading: "Leyendo la ficha… (unos segundos)",
+    lineQueued: n => `En fila para entrenar${n > 1 ? ` (#${n})` : ""}…`,
+    lineLearning: (name, p) => `Aprendiendo a ${name}… ${p}%`, lineWaiting: "Esperando una GPU libre…", linePreparing: "Preparando…",
+    lineNew: "Toca una pose para dejarla fuera del entrenamiento; luego pulsa Entrenar.",
+    lineReady: d => `Lista para usar. Entrenada el ${d}.`,
+    train: "Entrenar", trainAgain: "Entrenar otra vez", viewSheet: "Ver ficha", remove: "Quitar",
+    poseUsed: "se usa para entrenar", poseOut: "fuera del entrenamiento", hasBw: "tiene versión en blanco y negro",
+    confirmRetrain: n => `¿Entrenar a ${n} otra vez? Las páginas ya creadas se conservan.`,
+    confirmRemove: n => `¿Quitar a ${n}? La ficha se guarda en el archivo del NAS.`,
+    noChars: "Todavía no hay personajes. Sube una ficha arriba.", noReady: "Todavía no hay personajes entrenados; añade uno en Personajes.",
+    max4: "Máximo 4 personajes por página.", pickOne: "Escoge al menos un personaje.", describe: "Describe la escena.",
+    onTheWay: (n, cover) => `${n} ${cover ? (n > 1 ? "portadas" : "portada") : (n > 1 ? "páginas" : "página")} en camino; mira Mis páginas.`,
+    noPages: "Todavía no hay páginas. Crea una en “Crear página”.", drawing: "Dibujando…", cover: "Portada",
+    redo: "Repetir", confirmPageRemove: "¿Quitar esta página?",
+    castUsed: "Grupo entrenado junto: cada personaje se mantiene distinto.",
+    castLearning: "Este grupo se está entrenando junto; repite la página más tarde y saldrá mejor.",
+  },
+  en: {
+    password: "Password", login: "Log in", tabMake: "Make a page", tabPages: "My pages", tabChars: "Characters",
+    changePw: "Change password", logout: "Log out", other: "Español",
+    makeTitle: "Make a coloring page",
+    makeHint: "Pick the characters, then describe the scene in your own words, using their names. For example: “Coquí and the manatee splashing in the waves at the beach, El Morro in the background.”",
+    sceneChars: "Characters in this scene", sceneWhat: "What is happening in the scene?",
+    scenePh: "Coquí and the manatee playing in the waves at the beach, El Morro in the background",
+    whatToMake: "What to make", kindPage: "Coloring page", kindPageHint: "black & white lines to color in",
+    kindCover: "Book cover", kindCoverHint: "full color, room at the top for the title",
+    pageLabel: "Page", portrait: "Portrait (8.5 × 11 in)", landscape: "Landscape (11 × 8.5 in)",
+    howMany: "How many versions to try", create: "Create",
+    addTitle: "Add a character",
+    addHint: "Upload the character sheet: the same character in several poses (front, side, back…). If you have the same sheet in black and white, add it too. Training takes about an hour.",
+    name: "Name", namePh: "Coquí", whatItIs: "What it is", kindPh: "frog, manatee, sea turtle, girl…",
+    sheetLabel: "Character sheet (PNG or JPG)", sheetBwLabel: "Black-and-white version of the same sheet (optional)",
+    upload: "Upload", uploading: "Uploading…",
+    uploaded: n => `Uploaded ${n}. Reading the sheet… the poses appear below in a moment.`,
+    pwCurrent: "Current password", pwNew: "New password (at least 8 characters)", pwAgain: "New password again",
+    pwHint: "Any other computer or tablet that is logged in will need the new password.",
+    save: "Save", cancel: "Cancel", pwMismatch: "The new passwords don't match.", pwChanged: "Password changed.",
+    st: {reading: "Reading sheet", new: "Not trained yet", queued: "Waiting to train", training: "Training", ready: "Ready", failed: "Failed"},
+    lineReading: "Reading the sheet… (a few seconds)",
+    lineQueued: n => `In line to train${n > 1 ? ` (#${n})` : ""}…`,
+    lineLearning: (name, p) => `Learning ${name}… ${p}%`, lineWaiting: "Waiting for a free GPU…", linePreparing: "Preparing…",
+    lineNew: "Tap a pose to leave it out of training, then press Train.",
+    lineReady: d => `Ready to use. Trained ${d}.`,
+    train: "Train", trainAgain: "Train again", viewSheet: "View sheet", remove: "Remove",
+    poseUsed: "used for training", poseOut: "left out", hasBw: "has a black-and-white version",
+    confirmRetrain: n => `Train ${n} again? Pages already made are kept.`,
+    confirmRemove: n => `Remove ${n}? The sheet is kept in the archive on the NAS.`,
+    noChars: "No characters yet. Upload a character sheet above.", noReady: "No trained characters yet - add one under Characters.",
+    max4: "Up to 4 characters per page.", pickOne: "Pick at least one character.", describe: "Describe the scene.",
+    onTheWay: (n, cover) => `${n} ${cover ? "cover" : "page"}${n > 1 ? "s" : ""} on the way - see My pages.`,
+    noPages: "No pages yet. Make one under “Make a page”.", drawing: "Drawing…", cover: "Cover",
+    redo: "Redo", confirmPageRemove: "Remove this page?",
+    castUsed: "Group trained together: each character stays distinct.",
+    castLearning: "This group is learning together - redo the page later for a better result.",
+  },
+};
+let lang = "es";
+try { lang = localStorage.getItem("lang") || "es"; } catch {}
+const t = (k, ...a) => { const v = (I18N[lang] || I18N.es)[k]; return typeof v === "function" ? v(...a) : v ?? k; };
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-lang-toggle]").forEach(b => b.textContent = t("other"));
+}
+document.querySelectorAll("[data-lang-toggle]").forEach(b => b.onclick = () => {
+  lang = lang === "es" ? "en" : "es";
+  try { localStorage.setItem("lang", lang); } catch {}
+  applyLang(); drawChars(); drawPick(); drawPages();
+});
+applyLang();
+
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let characters = [], pages = [], picked = new Set(), timer = null;
+const dateStr = s => new Date(s * 1000).toLocaleDateString(lang === "es" ? "es-PR" : "en-US");
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {credentials: "same-origin", ...opts});
@@ -211,10 +305,10 @@ $("#pwBtn").onclick = () => { $("#pwForm").reset(); $("#pwMsg").textContent = ""
 $("#pwCancel").onclick = () => $("#pwDialog").close();
 $("#pwForm").onsubmit = async e => {
   e.preventDefault(); const msg = $("#pwMsg"); msg.className = "msg err";
-  if ($("#pwNew").value !== $("#pwNew2").value) { msg.textContent = "The new passwords don't match."; return; }
+  if ($("#pwNew").value !== $("#pwNew2").value) { msg.textContent = t("pwMismatch"); return; }
   try {
     await api("/api/password", json({current: $("#pwCur").value, new: $("#pwNew").value}));
-    msg.className = "msg ok"; msg.textContent = "Password changed.";
+    msg.className = "msg ok"; msg.textContent = t("pwChanged");
     setTimeout(() => $("#pwDialog").close(), 1200);
   } catch (err) { msg.textContent = err.message; }
 };
@@ -229,37 +323,42 @@ async function refresh() {
   clearTimeout(timer);
   try { [characters, pages] = await Promise.all([api("/api/characters"), api("/api/pages")]); } catch { return; }
   drawChars(); drawPick(); drawPages();
-  const busy = characters.some(c => ["queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status));
+  const busy = characters.some(c => ["reading","queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status));
   timer = setTimeout(refresh, busy ? 5000 : 30000);
 }
 
-const STATUS = {new: "Not trained yet", queued: "Waiting to train", training: "Training", ready: "Ready", failed: "Training failed"};
 function drawChars() {
   const box = $("#chars");
-  if (!characters.length) { box.innerHTML = '<div class="empty card">No characters yet. Upload a character sheet above.</div>'; return; }
+  if (!characters.length) { box.innerHTML = `<div class="empty card">${t("noChars")}</div>`; return; }
   box.innerHTML = characters.map(c => {
-    const busy = ["queued","training"].includes(c.status);
+    const busy = ["reading","queued","training"].includes(c.status);
     const p = c.progress || {};
     const pct = p.total > 0 ? Math.round(100 * p.step / p.total) : 0;
     let line = "";
-    if (c.status === "queued") line = `In line to train${c.queue_position > 1 ? ` (#${c.queue_position})` : ""}…`;
-    if (c.status === "training") line = p.stage === "training" ? `Learning ${esc(c.name)}… ${pct}%` : esc(p.stage || "starting") + "…";
+    if (c.status === "reading") line = t("lineReading");
+    if (c.status === "queued") line = t("lineQueued", c.queue_position || 0);
+    if (c.status === "training") line = p.stage === "training" ? t("lineLearning", esc(c.name), pct)
+      : (p.stage || "").startsWith("waiting") ? t("lineWaiting") : t("linePreparing");
     if (c.status === "failed") line = `<span class="msg err">${esc(c.error || "failed")}</span>`;
-    if (c.status === "new") line = "Click a pose to leave it out of training, then press Train.";
-    if (c.status === "ready") line = `Ready to use. Trained ${new Date(c.trained_at * 1000).toLocaleDateString()}.`;
-    const poses = Array.from({length: c.crops}, (_, i) =>
-      `<div class="pose ${c.excluded.includes(i) ? "off" : ""} ${busy ? "locked" : ""}" data-slug="${c.slug}" data-i="${i}" title="${c.excluded.includes(i) ? "left out" : "used for training"}">
-         <img loading="lazy" src="/api/characters/${c.slug}/crops/${i}" alt="pose ${i + 1}"></div>`).join("");
+    if (c.status === "new") line = t("lineNew");
+    if (c.status === "ready") line = t("lineReady", dateStr(c.trained_at));
+    const caps = c.captions || [], why = c.skip_reasons || {}, bw = new Set(c.line_partners || []);
+    const poses = Array.from({length: c.crops || 0}, (_, i) => {
+      const off = c.excluded.includes(i);
+      const tip = [caps[i] || "", off ? `${t("poseOut")}${why[i] ? " - " + why[i] : ""}` : t("poseUsed")].filter(Boolean).join(" · ");
+      return `<div class="pose ${off ? "off" : ""} ${busy ? "locked" : ""}" data-slug="${c.slug}" data-i="${i}" title="${esc(tip)}">
+         <img loading="lazy" src="/api/characters/${c.slug}/crops/${i}" alt="${esc(caps[i] || "")}">${bw.has(i) ? `<span class="bw" title="${t("hasBw")}">B/N</span>` : ""}</div>`;
+    }).join("");
     return `<div class="card">
-      <div class="char-head"><h3>${esc(c.name)} <span class="hint">(${esc(c.kind)})</span></h3><span class="badge ${c.status}">${STATUS[c.status] || c.status}</span></div>
+      <div class="char-head"><h3>${esc(c.name)} <span class="hint">(${esc(c.kind_original || c.kind)})</span></h3><span class="badge ${c.status}">${t("st")[c.status] || c.status}</span></div>
       <div class="poses">${poses}</div>
       <div class="hint">${line}</div>
       ${c.status === "training" && p.stage === "training" ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
       <div class="actions">
-        ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? "Train again" : "Train"}</button>`}
-        <a class="hint" href="/api/characters/${c.slug}/sheet" target="_blank">View sheet</a>
+        ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? t("trainAgain") : t("train")}</button>`}
+        <a class="hint" href="/api/characters/${c.slug}/sheet" target="_blank">${t("viewSheet")}</a>
         <span class="spacer" style="flex:1"></span>
-        ${busy ? "" : `<button class="danger" data-del="${c.slug}">Remove</button>`}
+        ${busy ? "" : `<button class="danger" data-del="${c.slug}">${t("remove")}</button>`}
       </div></div>`;
   }).join("");
   box.querySelectorAll(".pose:not(.locked)").forEach(el => el.onclick = async () => {
@@ -270,12 +369,12 @@ function drawChars() {
   });
   box.querySelectorAll("[data-train]").forEach(b => b.onclick = async () => {
     const c = characters.find(x => x.slug === b.dataset.train);
-    if (c.status === "ready" && !confirm(`Train ${c.name} again? Pages already made are kept.`)) return;
+    if (c.status === "ready" && !confirm(t("confirmRetrain", c.name))) return;
     b.disabled = true; try { await api(`/api/characters/${c.slug}/train`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
   });
   box.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     const c = characters.find(x => x.slug === b.dataset.del);
-    if (!confirm(`Remove ${c.name}? The sheet is kept in the archive on the NAS.`)) return;
+    if (!confirm(t("confirmRemove", c.name))) return;
     try { await api(`/api/characters/${c.slug}`, {method: "DELETE"}); } catch (err) { alert(err.message); } refresh();
   });
 }
@@ -283,13 +382,14 @@ function drawChars() {
 function drawPick() {
   const ready = characters.filter(c => c.status === "ready");
   picked = new Set([...picked].filter(s => ready.some(c => c.slug === s)));
+  const first = c => { for (let i = 0; i < c.crops; i++) if (!c.excluded.includes(i)) return i; return 0; };
   $("#pick").innerHTML = ready.length ? ready.map(c => `
     <label class="${picked.has(c.slug) ? "on" : ""}"><input type="checkbox" value="${c.slug}" ${picked.has(c.slug) ? "checked" : ""}>
-      <img src="/api/characters/${c.slug}/crops/${c.excluded.includes(0) ? (c.crops > 1 ? 1 : 0) : 0}" alt=""><span>${esc(c.name)}</span></label>`).join("")
-    : '<div class="hint">No trained characters yet - add one under Characters.</div>';
+      <img src="/api/characters/${c.slug}/crops/${first(c)}" alt=""><span>${esc(c.name)}</span></label>`).join("")
+    : `<div class="hint">${t("noReady")}</div>`;
   $("#pick").querySelectorAll("input").forEach(i => i.onchange = () => {
     i.checked ? picked.add(i.value) : picked.delete(i.value);
-    if (picked.size > 4) { picked.delete(i.value); i.checked = false; alert("Up to 4 characters per page."); }
+    if (picked.size > 4) { picked.delete(i.value); i.checked = false; alert(t("max4")); }
     i.closest("label").classList.toggle("on", i.checked);
   });
 }
@@ -299,14 +399,13 @@ document.querySelectorAll('input[name="kind"]').forEach(r => r.onchange = () =>
 
 $("#makeBtn").onclick = async () => {
   const msg = $("#makeMsg"); msg.className = "msg"; msg.textContent = "";
-  if (!picked.size) { msg.className = "msg err"; msg.textContent = "Pick at least one character."; return; }
-  if ($("#scene").value.trim().length < 3) { msg.className = "msg err"; msg.textContent = "Describe the scene."; return; }
+  if (!picked.size) { msg.className = "msg err"; msg.textContent = t("pickOne"); return; }
+  if ($("#scene").value.trim().length < 3) { msg.className = "msg err"; msg.textContent = t("describe"); return; }
   $("#makeBtn").disabled = true;
   try {
     const kind = document.querySelector('input[name="kind"]:checked').value;
     const made = await api("/api/pages", json({characters: [...picked], scene: $("#scene").value, orientation: $("#orient").value, variations: +$("#vars").value, kind}));
-    const what = kind === "cover" ? "cover" : "page";
-    msg.className = "msg ok"; msg.textContent = `${made.length} ${what}${made.length > 1 ? "s" : ""} on the way - see My pages.`;
+    msg.className = "msg ok"; msg.textContent = t("onTheWay", made.length, kind === "cover");
     await refresh();
     document.querySelector('nav button[data-tab="pages"]').click();
   } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
@@ -315,29 +414,37 @@ $("#makeBtn").onclick = async () => {
 
 function drawPages() {
   const g = $("#gallery");
-  if (!pages.length) { g.innerHTML = '<div class="empty card" style="grid-column:1/-1">No pages yet. Make one under “Make a page”.</div>'; return; }
+  if (!pages.length) { g.innerHTML = `<div class="empty card" style="grid-column:1/-1">${t("noPages")}</div>`; return; }
   g.innerHTML = pages.map(p => {
     const land = p.orientation === "landscape" ? "land" : "";
     let img = '<div class="spinner"></div>';
-    if (p.status === "done") img = `<a href="/api/pages/${p.id}/png" target="_blank"><img loading="lazy" src="/api/pages/${p.id}/thumb" alt="coloring page"></a>`;
+    if (p.status === "done") img = `<a href="/api/pages/${p.id}/png" target="_blank"><img loading="lazy" src="/api/pages/${p.id}/thumb" alt=""></a>`;
     if (p.status === "failed") img = `<div class="msg err" style="padding:12px">${esc(p.error || "failed")}</div>`;
+    const note = p.cast ? `<div class="note">${p.cast.used ? t("castUsed") : t("castLearning")}</div>` : "";
     return `<div class="pagecard"><div class="img ${land}">${img}</div><div class="body">
-      <div class="scene">${p.kind === "cover" ? '<span class="tag">Cover</span>' : ""}${esc(p.scene)}</div><div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString()}</div>
-      <div class="links">${p.status === "done" ? `<a href="/api/pages/${p.id}/pdf">PDF</a><a href="/api/pages/${p.id}/png" download>PNG</a>` : `<span class="hint">${p.status === "failed" ? "" : "Drawing…"}</span>`}
-        <span style="flex:1"></span><button class="danger" data-pdel="${p.id}">Remove</button></div></div></div>`;
+      <div class="scene">${p.kind === "cover" ? `<span class="tag">${t("cover")}</span>` : ""}${esc(p.scene)}</div>
+      <div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString(lang === "es" ? "es-PR" : "en-US")}</div>${note}
+      <div class="links">${p.status === "done" ? `<a href="/api/pages/${p.id}/pdf">PDF</a><a href="/api/pages/${p.id}/png" download>PNG</a>` : `<span class="hint">${p.status === "failed" ? "" : t("drawing")}</span>`}
+        ${["done","failed"].includes(p.status) ? `<button class="secondary" data-redo="${p.id}">${t("redo")}</button>` : ""}
+        <span style="flex:1"></span><button class="danger" data-pdel="${p.id}">${t("remove")}</button></div></div></div>`;
   }).join("");
   g.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => {
-    if (!confirm("Remove this page?")) return;
+    if (!confirm(t("confirmPageRemove"))) return;
     try { await api(`/api/pages/${b.dataset.pdel}`, {method: "DELETE"}); } catch (err) { alert(err.message); } refresh();
+  });
+  g.querySelectorAll("[data-redo]").forEach(b => b.onclick = async () => {
+    b.disabled = true; try { await api(`/api/pages/${b.dataset.redo}/redo`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
   });
 }
 
 $("#addForm").onsubmit = async e => {
-  e.preventDefault(); const msg = $("#addMsg"); msg.className = "msg"; msg.textContent = "Uploading…"; $("#addBtn").disabled = true;
-  const fd = new FormData(); fd.append("name", $("#cname").value.trim()); fd.append("kind", $("#ckind").value.trim()); fd.append("sheet", $("#csheet").files[0]);
+  e.preventDefault(); const msg = $("#addMsg"); msg.className = "msg"; msg.textContent = t("uploading"); $("#addBtn").disabled = true;
+  const fd = new FormData(); fd.append("name", $("#cname").value.trim()); fd.append("kind", $("#ckind").value.trim());
+  fd.append("sheet", $("#csheet").files[0]);
+  if ($("#csheetbw").files[0]) fd.append("sheet_bw", $("#csheetbw").files[0]);
   try {
     const c = await api("/api/characters", {method: "POST", body: fd});
-    msg.className = "msg ok"; msg.textContent = `Found ${c.crops} pose${c.crops > 1 ? "s" : ""} for ${c.name}. Check them below, then press Train.`;
+    msg.className = "msg ok"; msg.textContent = t("uploaded", c.name);
     e.target.reset(); await refresh();
   } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
   $("#addBtn").disabled = false;

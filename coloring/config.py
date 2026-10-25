@@ -39,6 +39,9 @@ TRAIN_HF_HOME = _env("COLORING_TRAIN_HF_HOME", "/data/imagegen/train/hf")
 TRAIN_STEPS = int(_env("COLORING_TRAIN_STEPS", "1500"))
 TRAIN_RANK = int(_env("COLORING_TRAIN_RANK", "16"))
 TRAIN_GPUS = [int(x) for x in _env("COLORING_TRAIN_GPUS", "0,1").split(",") if x.strip()]
+# Runs at once (never two on one card). 2 = both prism GPUs; more GPUs at full load
+# at once overloaded the rack's power strip on 2026-10-21.
+TRAIN_PARALLEL = int(_env("COLORING_TRAIN_PARALLEL", "2"))
 # A run needs ~12 GB; the card's resident live-call whisper worker holds ~2.5 GB.
 TRAIN_MIN_FREE_GB = float(_env("COLORING_TRAIN_MIN_FREE_GB", "12.5"))
 

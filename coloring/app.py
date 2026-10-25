@@ -19,6 +19,7 @@ import secrets
 import sys
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -31,7 +32,9 @@ from PIL import Image
 from pydantic import BaseModel, Field
 
 from . import config, page, store
+from .reader import read_sheet
 from .sheet import split_sheet
+from .translate import scene_to_english
 from .trainer import PROGRESS, QUEUE, redis_client
 
 log = logging.getLogger("coloring-studio")
@@ -190,7 +193,11 @@ def read_image(data: bytes) -> Image.Image:
 
 def _with_progress(m: dict) -> dict:
     p = r.hgetall(PROGRESS + m["slug"]) if m["status"] in ("queued", "training") else {}
-    return {**m, "progress": p or None,
+    try:
+        partners = sorted(int(f.name[:2]) for f in (store.char_dir(m["slug"]) / "crops").glob("[0-9][0-9]-line.png"))
+    except (OSError, ValueError):
+        partners = []
+    return {**m, "progress": p or None, "line_partners": partners,
             "queue_position": _queue_position(m["slug"]) if m["status"] == "queued" else None}
 
 
@@ -217,21 +224,57 @@ def characters():
 @app.post("/api/characters", dependencies=[Depends(require_login)])
 async def add_character(name: str = Form(..., min_length=1, max_length=40),
                         kind: str = Form(..., min_length=1, max_length=40),
-                        sheet: UploadFile = File(...)):
-    if not re.fullmatch(r"[A-Za-z][A-Za-z ]{0,39}", kind.strip()):
-        raise HTTPException(400, "describe what the character is in plain words, e.g. 'hedgehog' or 'girl'")
+                        sheet: UploadFile = File(...),
+                        sheet_bw: UploadFile | None = File(None)):
+    if not re.fullmatch(r"[^\W\d_][^\W\d_ ]*( [^\W\d_]+){0,4}", kind.strip()):
+        raise HTTPException(400, "describe what the character is in plain words, e.g. 'rana' or 'tortuga'")
     img = read_image(await sheet.read())
-    crops = split_sheet(img)
-    if not crops:
-        raise HTTPException(400, "no drawing found on that sheet - is it dark lines on a white background?")
+    bw = read_image(await sheet_bw.read()) if sheet_bw is not None and sheet_bw.filename else None
     m = store.new_character(name, kind)
     d = store.char_dir(m["slug"])
     img.save(d / "sheet.png")
-    for i, c in enumerate(crops):
-        c.save(d / "crops" / f"{i:02d}.png")
-    m["crops"] = len(crops)
+    if bw is not None:
+        bw.save(d / "sheet-bw.png")
+    m["status"] = "reading"
     store.save_character(m)
+    threading.Thread(target=read_into_character, args=(m["slug"],), daemon=True).start()
     return m
+
+
+def read_into_character(slug: str) -> None:
+    """Cut a freshly uploaded sheet into poses (in the background: OCR + translation
+    take ~10-30 s). Her model sheets are read by their labels; a plain sheet of poses
+    falls back to the simple splitter."""
+    from .reader import pair
+    from .translate import labels_to_english
+    m = store.get_character(slug)
+    d = store.char_dir(slug)
+    try:
+        img = Image.open(d / "sheet.png").convert("RGB")
+        kind_en = labels_to_english([m["kind"]])[0].strip().lower() or m["kind"]
+        items = read_sheet(img, keep_names=[m["name"]])
+        if len(items) >= 2:
+            if (d / "sheet-bw.png").is_file():
+                pair(items, read_sheet(Image.open(d / "sheet-bw.png").convert("RGB"), keep_names=[m["name"]]))
+            for i, it in enumerate(items):
+                it.crop.save(d / "crops" / f"{i:02d}.png")
+                if it.line is not None:
+                    it.line.save(d / "crops" / f"{i:02d}-line.png")
+            m.update(crops=len(items), captions=[i.caption for i in items], labels=[i.label for i in items],
+                     excluded=[i for i, it in enumerate(items) if it.skip],
+                     skip_reasons={str(i): it.reason for i, it in enumerate(items) if it.skip})
+        else:
+            crops = split_sheet(img)
+            if not crops:
+                raise ValueError("no drawings found - is it dark lines on a white background?")
+            for i, c in enumerate(crops):
+                c.save(d / "crops" / f"{i:02d}.png")
+            m.update(crops=len(crops))
+        m.update(kind=kind_en, kind_original=m["kind"], status="new", error=None)
+    except Exception as exc:
+        log.exception("reading sheet for %s failed", slug)
+        m.update(status="failed", error=f"couldn't read the sheet: {exc}"[:300])
+    store.save_character(m)
 
 
 class Poses(BaseModel):
@@ -241,7 +284,7 @@ class Poses(BaseModel):
 @app.put("/api/characters/{slug}/poses", dependencies=[Depends(require_login)])
 def set_poses(slug: str, body: Poses):
     m = _char(slug)
-    if m["status"] in ("queued", "training"):
+    if m["status"] in ("queued", "training", "reading"):
         raise HTTPException(409, "wait until training finishes")
     m["excluded"] = sorted({i for i in body.excluded if 0 <= i < m["crops"]})
     if len(m["excluded"]) >= m["crops"]:
@@ -255,6 +298,8 @@ def start_training(slug: str):
     m = _char(slug)
     if m["status"] in ("queued", "training"):
         return _with_progress(m)
+    if m["status"] == "reading":
+        raise HTTPException(409, "still reading the sheet")
     m.update(status="queued", error=None)
     store.save_character(m)
     r.delete(PROGRESS + slug)
@@ -296,15 +341,33 @@ class PageRequest(BaseModel):
     variations: int = Field(2, ge=1, le=config.MAX_VARIATIONS)
 
 
+def _fold(s: str) -> str:
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+
+
+def _names(c: dict) -> list[str]:
+    """Every way she may call a character: full name, aliases ("Coquí"), and its English
+    kind ("manatee" - the translator turns "Manatí" into that), longest first."""
+    return sorted({c["name"], *c.get("aliases", []), c["kind"]}, key=len, reverse=True)
+
+
 def build_prompt(scene: str, chars: list[dict], style: str = config.STYLE) -> str:
-    """Her names -> trigger + kind ("Pip" -> "cbk_pip hedgehog"). A chosen character the
-    description doesn't mention is put up front so it still appears."""
+    """Her names -> trigger + kind ("el Coquí" -> "cbk_coqui_puertorriqueno coqui frog"),
+    matched without regard to accents or case. A chosen character the description
+    doesn't mention is put up front so it still appears."""
     text, missing = scene.strip(), []
     for c in chars:
         ref = f"{c['trigger']} {c['kind']}"
-        pat = re.compile(r"\b" + re.escape(c["name"]) + r"\b", re.IGNORECASE)
-        if pat.search(text):
-            text = pat.sub(ref, text)
+        hit = None
+        for n in _names(c):
+            # match on the accent-folded text, character by character, so the span maps back
+            folded = "".join(_fold(ch) or ch for ch in text)
+            m = re.search(r"(?<![a-z0-9])" + re.escape(_fold(n)) + r"(?![a-z0-9])", folded)
+            if m and len(folded) == len(text):
+                hit = m
+                break
+        if hit:
+            text = text[:hit.start()] + ref + text[hit.end():]
         else:
             missing.append(ref)
     if missing:
@@ -343,7 +406,8 @@ def render_page(page_id: str) -> None:
         if m["orientation"] == "landscape":
             w, h = h, w
         body = {"prompt": m["prompt"], "width": w, "height": h, "seed": m["seed"], "wait": True,
-                "loras": [{"name": f"{config.LORA_NS}/{t}", "scale": m["lora_scale"]} for t in m["triggers"]]}
+                "loras": [{"name": n, "scale": m["lora_scale"]}
+                          for n in m.get("loras") or [f"{config.LORA_NS}/{t}" for t in m["triggers"]]]}
         png = _imagegen(body)
         d = store.page_dir(page_id)
         (d / "raw.png").write_bytes(png)
@@ -366,18 +430,45 @@ def make_pages(body: PageRequest):
     not_ready = [c["name"] for c in chars if c["status"] != "ready" or not store.lora_file(c).is_file()]
     if not_ready:
         raise HTTPException(400, f"not trained yet: {', '.join(not_ready)}")
-    prompt = build_prompt(body.scene, chars, config.COVER_STYLE if body.kind == "cover" else config.STYLE)
+    names = [n for c in chars for n in _names(c)]
+    scene_en = scene_to_english(body.scene, names)       # she writes in Spanish
+    prompt = build_prompt(scene_en, chars, config.COVER_STYLE if body.kind == "cover" else config.STYLE)
+    loras, cast = [f"{config.LORA_NS}/{c['trigger']}" for c in chars], None
+    if len(chars) > 1:
+        # Two separately trained characters blend about half the time; a joint "cast"
+        # LoRA keeps them apart. Use it when current, otherwise queue it for next time.
+        cm = store.cast_for([c["slug"] for c in chars])
+        cast = {"id": cm["id"], "used": False}
+        if store.cast_is_current(cm):
+            loras, cast["used"] = [f"{config.LORA_NS}/{store.cast_trigger(cm['id'])}"], True
+        elif cm["status"] not in ("queued", "training"):
+            cm.update(status="queued", error=None)
+            store.save_cast(cm)
+            r.rpush(QUEUE, f"cast:{cm['id']}")
     out = []
     for _ in range(body.variations):
         m = store.new_page({
-            "scene": body.scene, "prompt": prompt, "orientation": body.orientation, "kind": body.kind,
-            "characters": [c["slug"] for c in chars], "names": [c["name"] for c in chars],
-            "triggers": [c["trigger"] for c in chars], "lora_scale": 1.0,
+            "scene": body.scene, "scene_en": scene_en, "prompt": prompt, "orientation": body.orientation,
+            "kind": body.kind, "characters": [c["slug"] for c in chars], "names": [c["name"] for c in chars],
+            "triggers": [c["trigger"] for c in chars], "loras": loras, "cast": cast, "lora_scale": 1.0,
             "seed": random.randint(0, 2**32 - 1),
         })
         renderer.submit(render_page, m["id"])
         out.append(m)
     return out
+
+
+@app.post("/api/pages/{page_id}/redo", dependencies=[Depends(require_login)])
+def redo_page(page_id: str):
+    """Same request, new drawing (new seed); a group gets its cast if that's ready now."""
+    try:
+        m = store.get_page(page_id)
+    except ValueError:
+        m = None
+    if not m:
+        raise HTTPException(404, "no such page")
+    return make_pages(PageRequest(characters=m["characters"], scene=m["scene"], orientation=m["orientation"],
+                                  kind=m.get("kind", "page"), variations=1))
 
 
 @app.get("/api/pages", dependencies=[Depends(require_login)])
