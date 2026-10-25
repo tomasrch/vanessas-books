@@ -292,10 +292,11 @@ class PageRequest(BaseModel):
     characters: list[str] = Field(..., min_length=1, max_length=config.MAX_CHARACTERS_PER_SCENE)
     scene: str = Field(..., min_length=3, max_length=600)
     orientation: str = Field("portrait", pattern="^(portrait|landscape)$")
+    kind: str = Field("page", pattern="^(page|cover)$")    # B&W coloring page or colour cover
     variations: int = Field(2, ge=1, le=config.MAX_VARIATIONS)
 
 
-def build_prompt(scene: str, chars: list[dict]) -> str:
+def build_prompt(scene: str, chars: list[dict], style: str = config.STYLE) -> str:
     """Her names -> trigger + kind ("Pip" -> "cbk_pip hedgehog"). A chosen character the
     description doesn't mention is put up front so it still appears."""
     text, missing = scene.strip(), []
@@ -308,7 +309,7 @@ def build_prompt(scene: str, chars: list[dict]) -> str:
             missing.append(ref)
     if missing:
         text = f"{' and '.join(missing)}: {text}"
-    return f"{text}, {config.STYLE}"
+    return f"{text}, {style}"
 
 
 def _imagegen(body: dict) -> bytes:
@@ -346,7 +347,9 @@ def render_page(page_id: str) -> None:
         png = _imagegen(body)
         d = store.page_dir(page_id)
         (d / "raw.png").write_bytes(png)
-        pg = page.to_page(Image.open(io.BytesIO(png)), landscape=m["orientation"] == "landscape")
+        render = Image.open(io.BytesIO(png))
+        landscape = m["orientation"] == "landscape"
+        pg = page.to_cover(render, landscape) if m.get("kind") == "cover" else page.to_page(render, landscape)
         page.save(pg, d / "page.png", d / "page.pdf")
         (d / "thumb.png").write_bytes(page.thumbnail(pg))
         m.update(status="done", error=None, finished=time.time())
@@ -363,11 +366,11 @@ def make_pages(body: PageRequest):
     not_ready = [c["name"] for c in chars if c["status"] != "ready" or not store.lora_file(c).is_file()]
     if not_ready:
         raise HTTPException(400, f"not trained yet: {', '.join(not_ready)}")
-    prompt = build_prompt(body.scene, chars)
+    prompt = build_prompt(body.scene, chars, config.COVER_STYLE if body.kind == "cover" else config.STYLE)
     out = []
     for _ in range(body.variations):
         m = store.new_page({
-            "scene": body.scene, "prompt": prompt, "orientation": body.orientation,
+            "scene": body.scene, "prompt": prompt, "orientation": body.orientation, "kind": body.kind,
             "characters": [c["slug"] for c in chars], "names": [c["name"] for c in chars],
             "triggers": [c["trigger"] for c in chars], "lora_scale": 1.0,
             "seed": random.randint(0, 2**32 - 1),

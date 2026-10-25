@@ -65,6 +65,13 @@
                 display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; background: #fff; }
   .pick label.on { border-color: var(--accent); background: var(--accent-soft); }
   .pick img { height: 80px; } .pick input { display: none; }
+  .kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .kinds label { margin: 0; font-weight: 500; border: 2px solid var(--line); border-radius: 10px; padding: 10px 12px;
+                 cursor: pointer; background: #fff; display: flex; flex-direction: column; gap: 2px; }
+  .kinds label.on { border-color: var(--accent); background: var(--accent-soft); }
+  .kinds input { display: none; } .kinds span { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px;
+         background: var(--warn-soft); color: var(--warn); margin-right: 6px; vertical-align: 1px; }
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
   .pagecard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
   .pagecard .img { background: #fff; aspect-ratio: 8.5/11; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); }
@@ -120,6 +127,11 @@
     <div id="pick" class="pick"></div>
     <label for="scene">What is happening in the scene?</label>
     <textarea id="scene" maxlength="600" placeholder="Coquí and Manny the manatee playing in the waves at the beach, El Morro in the background"></textarea>
+    <label>What to make</label>
+    <div class="kinds">
+      <label class="on"><input type="radio" name="kind" value="page" checked><b>Coloring page</b><span>black &amp; white lines to color in</span></label>
+      <label><input type="radio" name="kind" value="cover"><b>Book cover</b><span>full color, room at the top for the title</span></label>
+    </div>
     <div class="row">
       <div><label for="orient">Page</label>
         <select id="orient"><option value="portrait">Portrait (8.5 × 11 in, tall)</option><option value="landscape">Landscape (11 × 8.5 in, wide)</option></select></div>
@@ -282,14 +294,19 @@ function drawPick() {
   });
 }
 
+document.querySelectorAll('input[name="kind"]').forEach(r => r.onchange = () =>
+  document.querySelectorAll(".kinds label").forEach(l => l.classList.toggle("on", l.querySelector("input").checked)));
+
 $("#makeBtn").onclick = async () => {
   const msg = $("#makeMsg"); msg.className = "msg"; msg.textContent = "";
   if (!picked.size) { msg.className = "msg err"; msg.textContent = "Pick at least one character."; return; }
   if ($("#scene").value.trim().length < 3) { msg.className = "msg err"; msg.textContent = "Describe the scene."; return; }
   $("#makeBtn").disabled = true;
   try {
-    const made = await api("/api/pages", json({characters: [...picked], scene: $("#scene").value, orientation: $("#orient").value, variations: +$("#vars").value}));
-    msg.className = "msg ok"; msg.textContent = `${made.length} page${made.length > 1 ? "s" : ""} on the way - see My pages.`;
+    const kind = document.querySelector('input[name="kind"]:checked').value;
+    const made = await api("/api/pages", json({characters: [...picked], scene: $("#scene").value, orientation: $("#orient").value, variations: +$("#vars").value, kind}));
+    const what = kind === "cover" ? "cover" : "page";
+    msg.className = "msg ok"; msg.textContent = `${made.length} ${what}${made.length > 1 ? "s" : ""} on the way - see My pages.`;
     await refresh();
     document.querySelector('nav button[data-tab="pages"]').click();
   } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
@@ -305,7 +322,7 @@ function drawPages() {
     if (p.status === "done") img = `<a href="/api/pages/${p.id}/png" target="_blank"><img loading="lazy" src="/api/pages/${p.id}/thumb" alt="coloring page"></a>`;
     if (p.status === "failed") img = `<div class="msg err" style="padding:12px">${esc(p.error || "failed")}</div>`;
     return `<div class="pagecard"><div class="img ${land}">${img}</div><div class="body">
-      <div class="scene">${esc(p.scene)}</div><div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString()}</div>
+      <div class="scene">${p.kind === "cover" ? '<span class="tag">Cover</span>' : ""}${esc(p.scene)}</div><div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString()}</div>
       <div class="links">${p.status === "done" ? `<a href="/api/pages/${p.id}/pdf">PDF</a><a href="/api/pages/${p.id}/png" download>PNG</a>` : `<span class="hint">${p.status === "failed" ? "" : "Drawing…"}</span>`}
         <span style="flex:1"></span><button class="danger" data-pdel="${p.id}">Remove</button></div></div></div>`;
   }).join("");

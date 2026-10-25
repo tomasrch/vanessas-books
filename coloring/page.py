@@ -38,13 +38,26 @@ def to_page(render: Image.Image, landscape: bool = False) -> Image.Image:
     return page.convert("1", dither=Image.NONE)
 
 
+def to_cover(render: Image.Image, landscape: bool = False) -> Image.Image:
+    """Colour render -> full US Letter page, edge to edge (no margin: covers print full bleed).
+    The render's 3:4 is cropped to 8.5:11 from the centre."""
+    pw, ph = config.PAGE_PX
+    if landscape:
+        pw, ph = ph, pw
+    img = render.convert("RGB")
+    s = max(pw / img.width, ph / img.height)
+    img = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
+    x, y = (img.width - pw) // 2, (img.height - ph) // 2
+    return img.crop((x, y, x + pw, y + ph))
+
+
 def save(page: Image.Image, png_path, pdf_path) -> None:
     page.save(png_path, "PNG", dpi=(config.DPI, config.DPI))
     page.save(pdf_path, "PDF", resolution=config.DPI)
 
 
 def thumbnail(page: Image.Image, width: int = 480) -> bytes:
-    t = page.convert("L")
+    t = page.convert("RGB" if page.mode == "RGB" else "L")
     t.thumbnail((width, width * 2))
     buf = io.BytesIO()
     t.save(buf, "PNG", optimize=True)

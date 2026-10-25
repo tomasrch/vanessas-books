@@ -50,6 +50,10 @@ RENDER_PORTRAIT = (1056, 1408)             # 3:4 like the 7.5 x 10 in printable 
 STYLE = ("children's coloring book page, black and white line art, clean bold black outlines, "
          "pure white background, no shading, no grey, no color, no text, no letters, "
          "simple shapes, large open areas to color")
+# Covers: the colour half of each character's training ("full color children's book illustration").
+COVER_STYLE = ("full color children's book cover illustration, bright cheerful tropical colors, "
+               "clean cartoon style, leave the top quarter as simple open sky for the title, "
+               "no text, no letters, no words")
 MAX_CHARACTERS_PER_SCENE = 4
 MAX_VARIATIONS = 4
 
