@@ -26,6 +26,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
 
@@ -38,9 +39,11 @@ STATIC = Path(__file__).parent / "static"
 SESSION_COOKIE = "cs_session"
 Image.MAX_IMAGE_PIXELS = 40_000_000    # decompression-bomb cap, same as the PRISM API
 
-app = FastAPI(title="Coloring Studio", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Vanessa's Coloring Books", docs_url=None, redoc_url=None, openapi_url=None)
 r = redis_client()
 renderer = ThreadPoolExecutor(max_workers=2, thread_name_prefix="render")
+# Logo and favicon only - shown on the login screen, so served without a session.
+app.mount("/img", StaticFiles(directory=STATIC / "img"), name="img")
 
 
 # --- auth --------------------------------------------------------------------

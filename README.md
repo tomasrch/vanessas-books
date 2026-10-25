@@ -1,4 +1,4 @@
-# Coloring Studio
+# Coloring Studio — Vanessa's Coloring Books
 
 A private web page for making children's coloring-book pages with your own characters.
 

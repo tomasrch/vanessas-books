@@ -3,22 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Coloring Studio</title>
+<title>Vanessa's Coloring Books</title>
+<link rel="icon" type="image/png" href="/img/favicon.png">
 <style>
+  /* Palette taken from the logo: ocean blue, leaf green, hibiscus coral, sunny yellow, wood. */
   :root {
-    --bg: #faf7f2; --card: #ffffff; --ink: #1f1d1a; --muted: #6d675f; --line: #e6e0d6;
-    --accent: #3b6fd8; --accent-ink: #ffffff; --ok: #2e8b57; --warn: #b7791f; --bad: #c0392b;
+    --bg: #fdf8ee; --card: #ffffff; --ink: #2b2420; --muted: #6f6257; --line: #eadfcc;
+    --accent: #1b86c9; --accent-ink: #ffffff; --accent-soft: #e6f3fb;
+    --ok: #2f9a4c; --ok-soft: #e7f6eb; --warn: #b9770e; --warn-soft: #fff3d6;
+    --bad: #d6404a; --bad-soft: #fde9ea; --sun: #f5b72b; --wood: #8a5a2b;
+    --round: "Fredoka", "Baloo 2", ui-rounded, "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { display: flex; align-items: center; gap: 24px; padding: 14px 24px;
-           background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 20px; margin: 0; }
+  header { display: flex; align-items: center; gap: 20px; padding: 8px 24px;
+           background: var(--card); border-bottom: 4px solid var(--sun); position: sticky; top: 0; z-index: 5; }
+  header .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+  header .brand img { height: 64px; width: auto; }
+  header h1 { font: 600 21px/1.1 var(--round); margin: 0; color: var(--wood); }
+  header h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+  h2, h3 { font-family: var(--round); }
   nav { display: flex; gap: 6px; flex-wrap: wrap; }
   nav button { background: none; border: 0; padding: 8px 14px; border-radius: 8px; font: inherit;
                color: var(--muted); cursor: pointer; }
-  nav button.on { background: #eef3fd; color: var(--accent); font-weight: 600; }
+  nav button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
   header .spacer { flex: 1; }
   main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
   section { display: none; } section.on { display: block; }
@@ -42,19 +51,19 @@
   .char-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .char-head h3 { margin: 0; font-size: 17px; }
   .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: #eef0f3; color: var(--muted); white-space: nowrap; }
-  .badge.ready { background: #e7f5ec; color: var(--ok); } .badge.training, .badge.queued { background: #fdf3e1; color: var(--warn); }
-  .badge.failed { background: #fbe9e7; color: var(--bad); }
+  .badge.ready { background: var(--ok-soft); color: var(--ok); } .badge.training, .badge.queued { background: var(--warn-soft); color: var(--warn); }
+  .badge.failed { background: var(--bad-soft); color: var(--bad); }
   .poses { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 12px 0; }
   .pose { border: 2px solid var(--line); border-radius: 8px; background: #fff; padding: 4px; cursor: pointer; position: relative; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; }
   .pose img { max-width: 100%; max-height: 100%; }
   .pose.off { opacity: .3; border-style: dashed; }
   .pose.locked { cursor: default; }
   .bar { height: 8px; background: #eef0f3; border-radius: 99px; overflow: hidden; margin-top: 8px; }
-  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .5s; }
+  .bar > div { height: 100%; background: linear-gradient(90deg, var(--ok), var(--accent)); width: 0; transition: width .5s; }
   .pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
   .pick label { margin: 0; font-weight: 500; border: 2px solid var(--line); border-radius: 10px; padding: 8px;
                 display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; background: #fff; }
-  .pick label.on { border-color: var(--accent); background: #f4f7fe; }
+  .pick label.on { border-color: var(--accent); background: var(--accent-soft); }
   .pick img { height: 80px; } .pick input { display: none; }
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
   .pagecard { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
@@ -67,14 +76,17 @@
   .pagecard a { color: var(--accent); font-weight: 600; text-decoration: none; }
   .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #login { max-width: 380px; margin: 12vh auto; }
+  #login { max-width: 400px; margin: 6vh auto; text-align: center; }
+  #login img { width: min(320px, 80%); height: auto; margin: 0 auto 8px; display: block; }
+  #login form { text-align: left; }
   .empty { color: var(--muted); text-align: center; padding: 28px; }
-  @media (max-width: 600px) { header { flex-wrap: wrap; gap: 8px; } main { padding: 16px 12px 48px; } }
+  @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
+                              header h1 small { display: none; } main { padding: 16px 12px 48px; } }
 </style>
 </head>
 <body>
 <div id="login" class="card" hidden>
-  <h2>Coloring Studio</h2>
+  <img src="/img/logo-640.png" alt="Vanessa's Coloring Books - Puerto Rican Animals &amp; Lore">
   <form id="loginForm">
     <label for="pw">Password</label>
     <input id="pw" type="password" autocomplete="current-password" required>
@@ -84,7 +96,7 @@
 
 <div id="app" hidden>
 <header>
-  <h1>Coloring Studio</h1>
+  <a class="brand" href="/"><img src="/img/logo-256.png" alt=""><h1>Vanessa's Coloring Books<small>Puerto Rican Animals &amp; Lore</small></h1></a>
   <nav>
     <button data-tab="make" class="on">Make a page</button>
     <button data-tab="pages">My pages</button>
@@ -98,12 +110,12 @@
 <section id="tab-make" class="on">
   <div class="card">
     <h2>Make a coloring page</h2>
-    <p class="hint">Pick the characters, then describe the scene in your own words. Use their names, e.g.
-      “Pip and Lulu playing checkers at a little table in the garden.”</p>
+    <p class="hint">Pick the characters, then describe the scene in your own words, using their names - e.g.
+      “Coquí and Manny the manatee splashing by the beach, El Morro in the background.”</p>
     <label>Characters in this scene</label>
     <div id="pick" class="pick"></div>
     <label for="scene">What is happening in the scene?</label>
-    <textarea id="scene" maxlength="600" placeholder="Pip and Lulu playing checkers at a little table in the garden, butterflies around them"></textarea>
+    <textarea id="scene" maxlength="600" placeholder="Coquí and Manny the manatee playing in the waves at the beach, El Morro in the background"></textarea>
     <div class="row">
       <div><label for="orient">Page</label>
         <select id="orient"><option value="portrait">Portrait (8.5 × 11 in, tall)</option><option value="landscape">Landscape (11 × 8.5 in, wide)</option></select></div>
@@ -125,8 +137,8 @@
       in black lines on a white background. More poses teach the character better. Training takes about an hour.</p>
     <form id="addForm">
       <div class="row">
-        <div><label for="cname">Name</label><input id="cname" type="text" maxlength="40" placeholder="Pip" required></div>
-        <div><label for="ckind">What it is</label><input id="ckind" type="text" maxlength="40" placeholder="hedgehog, girl, dragon…" required></div>
+        <div><label for="cname">Name</label><input id="cname" type="text" maxlength="40" placeholder="Coquí" required></div>
+        <div><label for="ckind">What it is</label><input id="ckind" type="text" maxlength="40" placeholder="frog, manatee, sea turtle, girl…" required></div>
       </div>
       <label for="csheet">Character sheet (PNG or JPG)</label>
       <input id="csheet" type="file" accept="image/png,image/jpeg,image/webp" required>
