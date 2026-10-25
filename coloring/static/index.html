@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vanessa's Coloring Books</title>
+<title>Vanessa · Libros para Colorear</title>
 <link rel="icon" type="image/png" href="/img/favicon.png">
 <style>
   /* Palette taken from the logo: ocean blue, leaf green, hibiscus coral, sunny yellow, wood. */
@@ -20,7 +20,7 @@
   header { display: flex; align-items: center; gap: 20px; padding: 8px 24px;
            background: var(--card); border-bottom: 4px solid var(--sun); position: sticky; top: 0; z-index: 5; }
   header .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
-  header .brand img { height: 64px; width: auto; }
+  header .brand img { height: 64px; width: auto; max-width: 110px; object-fit: contain; }
   header h1 { font: 600 21px/1.1 var(--round); margin: 0; color: var(--wood); }
   header h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
   h2, h3 { font-family: var(--round); }
@@ -93,7 +93,7 @@
   .langsw { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
   .pose .bw { position: absolute; right: 3px; bott<body>
 <div id="login" class="card" hidden>
-  <img src="/img/logo-640.png" alt="Vanessa's Coloring Books - Puerto Rican Animals &amp; Lore">
+  <img id="loginLogo" src="/img/logo-es-720.png" alt="">
   <form id="loginForm">
     <label for="pw" data-i18n="password">Contraseña</label>
     <input id="pw" type="password" autocomplete="current-password" required>
@@ -104,7 +104,7 @@
 
 <div id="app" hidden>
 <header>
-  <a class="brand" href="/"><img src="/img/logo-256.png" alt=""><h1>Vanessa's Coloring Books<small>Puerto Rican Animals &amp; Lore</small></h1></a>
+  <a class="brand" href="/"><img id="brandLogo" src="/img/logo-es-300.png" alt=""><h1><span data-i18n="brandTitle"></span><small data-i18n="brandSub"></small></h1></a>
   <nav>
     <button data-tab="make" class="on" data-i18n="tabMake">Crear página</button>
     <button data-tab="pages" data-i18n="tabPages">Mis páginas</button>
@@ -187,6 +187,9 @@
 <script>
 const I18N = {
   es: {
+    brandTitle: "Vanessa · Libros para Colorear", brandSub: "Animales de Puerto Rico",
+    docTitle: "Vanessa · Libros para Colorear", logo: "/img/logo-es-720.png", logoSmall: "/img/logo-es-300.png",
+    logoAlt: "Vanessa - Animales de Puerto Rico - Libros para Colorear",
     password: "Contraseña", login: "Entrar", tabMake: "Crear página", tabPages: "Mis páginas", tabChars: "Personajes",
     changePw: "Cambiar contraseña", logout: "Salir", other: "English",
     makeTitle: "Crear una página para colorear",
@@ -225,6 +228,9 @@ const I18N = {
     castLearning: "Este grupo se está entrenando junto; repite la página más tarde y saldrá mejor.",
   },
   en: {
+    brandTitle: "Vanessa's Coloring Books", brandSub: "Puerto Rican Animals & Lore",
+    docTitle: "Vanessa's Coloring Books", logo: "/img/logo-640.png", logoSmall: "/img/logo-256.png",
+    logoAlt: "Vanessa's Coloring Books - Puerto Rican Animals & Lore",
     password: "Password", login: "Log in", tabMake: "Make a page", tabPages: "My pages", tabChars: "Characters",
     changePw: "Change password", logout: "Log out", other: "Español",
     makeTitle: "Make a coloring page",
@@ -271,6 +277,9 @@ function applyLang() {
   document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
   document.querySelectorAll("[data-lang-toggle]").forEach(b => b.textContent = t("other"));
+  document.title = t("docTitle");
+  const ll = document.getElementById("loginLogo"), bl = document.getElementById("brandLogo");
+  ll.src = t("logo"); ll.alt = t("logoAlt"); bl.src = t("logoSmall");
 }
 document.querySelectorAll("[data-lang-toggle]").forEach(b => b.onclick = () => {
   lang = lang === "es" ? "en" : "es";
