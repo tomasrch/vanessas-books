@@ -29,7 +29,7 @@ CUTS = {
   ("Vista frontal", "front view, full body, sharp teeth grin, coral reef background", (10,150,395,390)),
   ("Vista lateral", "side view, full body, coral reef background", (390,150,775,385)),
   ("Vista de tres cuartos", "three-quarter view, full body, coral reef background", (760,150,1135,385)),
-  ("Vista posterior", "back view, full body, forked tail", (1135,180,1385,385)),
+  ("Vista posterior", "back view, full body, forked tail", (1133,180,1385,385)),
   ("Alegre", "head close-up, happy toothy grin", (30,475,185,625)),
   ("Curiosa", "head close-up, curious", (155,470,320,625)),
   ("Sorprendida", "head close-up, surprised, mouth open", (290,470,450,625)),
@@ -40,7 +40,37 @@ CUTS = {
   ("Explorando su entorno", "exploring its surroundings", (430,730,630,830)),
   ("Nadando rápidamente", "swimming fast, leaping upward with a splash", (640,680,830,860))],
 }
-WHITE = {("picua-barracuda", 2): [(1005, 150, 1135, 182)]}
+CUTS["pargo-criollo"] = [
+  ("Vista frontal", "front view, full body, coral reef background", (25,120,305,390)),
+  ("Vista lateral", "side view, full body, coral reef background", (315,125,705,385)),
+  ("Vista de tres cuartos", "three-quarter view, full body, coral reef background", (720,125,1030,385)),
+  ("Vista posterior", "back view, full body, tail fin", (1140,163,1375,385)),
+  ("Alegre", "head close-up, happy", (25,470,172,630)),
+  ("Curioso", "head close-up, curious", (170,475,312,630)),
+  ("Sorprendida", "head close-up, surprised, mouth open", (305,470,445,630)),
+  ("Contento", "head close-up, content, eyes closed smiling", (440,470,585,630)),
+  ("Juguetón", "head close-up, playful, eyes closed laughing", (578,475,725,630)),
+  ("Nadando en el arrecife", "swimming in the coral reef", (40,710,225,850)),
+  ("Explorando su entorno", "exploring its surroundings", (250,730,420,850)),
+  ("Buscando alimento entre las rocas", "looking for food among the rocks", (435,700,600,830)),
+  ("Nadando en grupo", "swimming in a group with another snapper", (610,690,820,840))]
+CUTS["dorado-dolphin-fish-mahi"] = [
+  ("Vista frontal", "front view, full body, ocean background", (10,115,342,390)),
+  ("Vista lateral", "side view, full body, ocean background", (345,135,728,385)),
+  ("Vista de tres cuartos", "three-quarter view, full body, ocean background", (730,140,1110,385)),
+  ("Vista posterior", "back view, full body, forked tail", (1133,180,1385,385)),
+  ("Alegre", "head close-up, happy", (25,465,170,625)),
+  ("Curioso", "head close-up, curious", (160,465,300,625)),
+  ("Sorprendido", "head close-up, surprised, mouth open", (295,460,440,625)),
+  ("Contento", "head close-up, content, winking", (430,460,580,625)),
+  ("Juguetón", "head close-up, playful", (580,460,725,625)),
+  ("Nadando en manada", "swimming in a school of fish", (30,730,220,855)),
+  ("Saltando sobre el agua", "leaping out of the water with a splash", (230,680,420,855)),
+  ("Nadando junto a otras", "swimming together with others", (435,700,610,855)),
+  ("Buscando alimento", "looking for food", (595,700,795,830))]
+WHITE = {("picua-barracuda", 2): [(1005, 150, 1135, 182)],
+         ("pargo-criollo", 2): [(1010, 120, 1030, 160)],
+         ("dorado-dolphin-fish-mahi", 2): [(1000, 140, 1110, 172)]}
 slug, out = sys.argv[1], Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
 d = Path("/mnt/Medina/VANESSA-BOOKS/characters") / slug
 s = Image.open(d / "sheet.png").convert("RGB"); k = s.width / 1400
