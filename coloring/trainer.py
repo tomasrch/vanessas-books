@@ -31,6 +31,7 @@ from .sheet import is_color, line_art
 log = logging.getLogger("coloring-trainer")
 QUEUE = "coloring:train:queue"
 PROGRESS = "coloring:train:progress:"
+OOM_RETRIES = "coloring:train:oom"
 STEP_RE = re.compile(rb"(\d+)/(\d+) \[")
 
 CONFIG_TEMPLATE = """\
@@ -252,8 +253,21 @@ def work(r: redis.Redis, slot: int) -> None:
                 train_cast(r, job[5:])
             else:
                 train(r, job)
+            r.hdel(OOM_RETRIES, job)
         except Exception as exc:
             log.exception("%s failed", job)
+            # Out of memory means something else grabbed the card mid-start (a render, a
+            # vision model): not the job's fault, so put it back and try again later.
+            if "out of memory" in str(exc).lower() and r.hincrby(OOM_RETRIES, job, 1) <= 3:
+                log.warning("%s: GPU out of memory, requeued", job)
+                set_progress(r, job, "queued")
+                if not job.startswith("cast:") and (meta := store.get_character(job)):
+                    meta.update(status="queued")
+                    store.save_character(meta)
+                time.sleep(120)
+                r.rpush(QUEUE, job)
+                continue
+            r.hdel(OOM_RETRIES, job)
             if job.startswith("cast:"):
                 cast = store.get_cast(job[5:])
                 if cast:

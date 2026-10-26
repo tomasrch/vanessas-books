@@ -31,7 +31,13 @@ def isolate(img: Image.Image, pad: int = 12) -> Image.Image:
     if n < 2:
         return img.convert("RGB")
     k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
-    out = np.where((lab == k)[..., None], a, 255).astype(np.uint8)
+    # Eyes, a mouth or spots drawn inside the outline without touching it are separate
+    # components: keep everything inside the drawing's filled silhouette, not just the outline.
+    main = (lab == k).astype(np.uint8)
+    flood = np.pad(main, 1)
+    cv2.floodFill(flood, None, (0, 0), 2)
+    keep = (main > 0) | (flood[1:-1, 1:-1] == 0)
+    out = np.where(keep[..., None], a, 255).astype(np.uint8)
     x, y, w, h = st[k, :4]
     out = out[y:y + h, x:x + w]
     out = cv2.copyMakeBorder(out, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(255, 255, 255))
