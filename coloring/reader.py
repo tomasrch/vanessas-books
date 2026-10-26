@@ -297,7 +297,7 @@ def is_character(crop: Image.Image, name: str, kind: str, timeout: float = 120) 
     c.thumbnail((512, 512))
     c.save(buf, "PNG")
     body = {
-        "model": VISION_MODEL, "stream": False, "keep_alive": "30s", "options": {"temperature": 0},
+        "model": VISION_MODEL, "stream": False, "keep_alive": "30s", "options": {"temperature": 0, "num_ctx": 4096},
         "prompt": (f"This picture is cut from a character sheet for {name}, a cartoon {kind}. "
                    f"Does it show {name} - the whole {kind}, the upper body, or the face/head? "
                    f"Answer 'no' for objects, accessories on their own, other animals or text. "

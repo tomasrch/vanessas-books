@@ -20,7 +20,9 @@ MODEL = "llama3.2:latest"
 
 def _ask(prompt: str, timeout: float = 120) -> str | None:
     body = {"model": MODEL, "prompt": prompt, "stream": False, "format": "json",
-            "keep_alive": "60s", "options": {"temperature": 0}}
+            "keep_alive": "60s",
+            # Ollama here defaults to a 128K context (~10 GB of KV cache); a label needs 4K
+            "options": {"temperature": 0, "num_ctx": 4096}}
     req = urllib.request.Request(URL, json.dumps(body).encode(), {"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:

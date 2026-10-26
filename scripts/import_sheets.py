@@ -32,6 +32,9 @@ KIND = {
     "CB-09": "land crab", "CB-10": "butterfly", "CB-11": "bat", "CB-12": "sea turtle",
     "CB-13": "pelican", "CB-14": "seahorse", "CB-15": "dolphin", "CB-16": "warbler bird",
     "CB-17": "flamingo", "CB-18": "woodpecker", "CB-19": "hawk", "CB-20": "toad",
+    "CB-25": "hutia rodent", "CB-26": "freshwater turtle", "CB-27": "queen conch snail",
+    "CB-28": "sea snail", "CB-29": "hawksbill sea turtle", "CB-30": "puppy dog",
+    "CB-31": "parrotfish", "CB-32": "snapper fish", "CB-33": "barracuda fish", "CB-34": "mahi-mahi fish",
 }
 # Short names she'll use in scene descriptions ("el coquí y el manatí ...").
 ALIASES = {
@@ -41,6 +44,9 @@ ALIASES = {
     "CB-12": ["Tortuga"], "CB-13": ["Pelícano"], "CB-14": ["Caballito de mar", "Caballito"],
     "CB-15": ["Delfín"], "CB-16": ["Reinita"], "CB-17": ["Flamenco"], "CB-18": ["Carpintero"],
     "CB-19": ["Guaraguao"], "CB-20": ["Sapo concho", "Sapo"],
+    "CB-25": ["Jutía"], "CB-26": ["Jicotea"], "CB-27": ["Carrucho"], "CB-28": ["Burgao"],
+    "CB-29": ["Carey"], "CB-30": ["Perrito taíno", "Perrito"], "CB-31": ["Pez loro"],
+    "CB-32": ["Pargo criollo", "Pargo"], "CB-33": ["Picúa", "Barracuda"], "CB-34": ["Dorado"],
 }
 
 
@@ -90,6 +96,9 @@ def main() -> int:
     ap.add_argument("--roster", type=Path, required=True)
     ap.add_argument("--skip", nargs="*", default=[])
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--replace", action="store_true",
+                    help="re-import codes that already exist (the old version is archived, not deleted)")
+    ap.add_argument("--only", nargs="*", default=None, help="limit to these codes (CB-25 ...)")
     a = ap.parse_args()
 
     cat = roster(a.roster)
@@ -99,12 +108,15 @@ def main() -> int:
             print(f"skip  {path.name}")
             continue
         img = Image.open(path).convert("RGB")
-        code = sheet_code(img, cat)
+        named = re.match(r"(CB-\d{2})_", path.name)       # the zip names files CB-XX_Ficha_Maestra.png
+        code = named.group(1) if named else sheet_code(img, cat)
+        if a.only is not None and code not in a.only:
+            continue
         info = cat.get(code or "")
         if not info:
             print(f"??    {path.name}: code {code!r} not in the roster - left alone")
             continue
-        if code in existing:
+        if code in existing and not a.replace:
             print(f"have  {code} {info['Personaje']} - already imported")
             continue
         name = str(info["Personaje"])
@@ -117,6 +129,16 @@ def main() -> int:
         print(f"{code} {name}: {len(items)} drawings, {len(kept)} kept "
               f"({', '.join(i.caption for i in kept)})")
         if a.dry_run:
+            continue
+        for old in [c for c in store.list_characters() if c.get("code") == code]:
+            if old["status"] in ("queued", "training"):
+                print(f"      {code}: old version is {old['status']} - left alone")
+                break
+            store.archive_character(old["slug"])
+            print(f"      {code}: previous version archived ({old['slug']})")
+        else:
+            old = None
+        if old is not None and old["status"] in ("queued", "training"):
             continue
         m = store.new_character(name, KIND.get(code, name))
         # ascii slug (store.new_character keeps accents out of the folder name already)

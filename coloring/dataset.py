@@ -46,7 +46,7 @@ def describe_pose(crop: Image.Image, timeout: float = 120) -> str:
         "stream": False,
         # Unload right away: a resident llava (~9 GB) leaves no room to train on the card.
         "keep_alive": 0,
-        "options": {"temperature": 0},
+        "options": {"temperature": 0, "num_ctx": 4096},   # not the server's 128K default
     }
     req = urllib.request.Request(OLLAMA_URL, json.dumps(body).encode(), {"Content-Type": "application/json"})
     try:

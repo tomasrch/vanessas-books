@@ -61,7 +61,7 @@ def char_dir(slug: str) -> Path:
 def new_character(name: str, kind: str) -> dict:
     base = slugify(name)
     slug, n = base, 2
-    while (config.CHARACTERS / slug).exists() or (config.CHARACTERS / "_archived" / slug).exists():
+    while (config.CHARACTERS / slug).exists():
         slug, n = f"{base[:21]}-{n}", n + 1
     d = config.CHARACTERS / slug
     (d / "crops").mkdir(parents=True)
@@ -98,7 +98,7 @@ def list_characters() -> list[dict]:
 def archive_character(slug: str) -> None:
     """Moved aside, never deleted: her artwork is the input and can't be regenerated."""
     src = char_dir(slug)
-    dst = config.CHARACTERS / "_archived" / slug
+    dst = config.CHARACTERS / "_archived" / f"{slug}--{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}"
     dst.parent.mkdir(exist_ok=True)
     shutil.move(str(src), str(dst))
     lora = config.LORAS / f"{trigger_for(slug)}.safetensors"
