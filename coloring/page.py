@@ -38,7 +38,7 @@ def to_page(render: Image.Image, landscape: bool = False) -> Image.Image:
     return page.convert("1", dither=Image.NONE)
 
 
-def to_cover(render: Image.Image, landscape: bool = False) -> Image.Image:
+def to_cover(render: Image.Image, landscape: bool = False, title_band: bool = True) -> Image.Image:
     """Colour render -> full US Letter page, edge to edge (no margin: covers print full bleed).
     The render's 3:4 is cropped to 8.5:11 from the centre."""
     pw, ph = config.PAGE_PX
@@ -48,7 +48,25 @@ def to_cover(render: Image.Image, landscape: bool = False) -> Image.Image:
     s = max(pw / img.width, ph / img.height)
     img = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
     x, y = (img.width - pw) // 2, (img.height - ph) // 2
-    return img.crop((x, y, x + pw, y + ph))
+    img = img.crop((x, y, x + pw, y + ph))
+    return _title_band(img) if title_band else img
+
+
+def _title_band(img: Image.Image, frac: float = 0.24) -> Image.Image:
+    """Frosted area across the top for the book title: the picture there is blurred and
+    lightened, fading into the sharp picture below. FLUX ignores "leave room for the
+    title" often enough that the cover makes the room itself."""
+    from PIL import ImageFilter
+    w, h = img.size
+    band = int(h * frac)
+    frosted = img.filter(ImageFilter.GaussianBlur(radius=w // 60))
+    frosted = Image.blend(frosted, Image.new("RGB", img.size, (255, 255, 255)), 0.55)
+    ramp = np.zeros((h, 1), np.float32)
+    fade = int(band * 0.35)
+    ramp[:band - fade] = 1.0
+    ramp[band - fade:band] = np.linspace(1.0, 0.0, fade)[:, None]
+    mask = Image.fromarray((np.repeat(ramp, w, axis=1) * 255).astype(np.uint8))
+    return Image.composite(frosted, img, mask)
 
 
 def save(page: Image.Image, png_path, pdf_path) -> None:

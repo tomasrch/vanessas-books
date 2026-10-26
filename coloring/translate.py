@@ -63,10 +63,18 @@ def labels_to_english(labels: list[str], keep: list[str] = ()) -> list[str]:
     return [table.get(l.strip(), l) for l in labels]
 
 
+# Puerto Rican words a general model gets wrong ("amapola" is the hibiscus there, not a poppy).
+PR_GLOSSARY = ("amapola = hibiscus flower, flamboyán = flamboyant flame tree, china = orange (the fruit), "
+               "guineo = banana, chiringa = kite, guagua = bus, bohío = Taíno thatched hut, "
+               "batey = Taíno village plaza, mahones = jeans, pana = friend, zafacón = trash can; "
+               "keep place names such as El Morro, El Yunque and Viejo San Juan as they are")
+
+
 def scene_to_english(scene: str, names: list[str]) -> str:
     """Her scene description -> English for FLUX; names stay exactly as written."""
     out = _ask(
-        "Translate this description of a children's coloring-book scene into English. If it is already "
+        "Translate this description of a children's coloring-book scene into English. It is Puerto Rican "
+        "Spanish: " + PR_GLOSSARY + ". If it is already "
         "English, return it unchanged. Keep these character names exactly as written: "
         f"{', '.join(names) or 'none'}. Do not add anything. Reply as JSON: "
         '{"en": "<English>"}.\n\n' + scene)
