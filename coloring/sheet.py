@@ -32,11 +32,21 @@ def isolate(img: Image.Image, pad: int = 12) -> Image.Image:
         return img.convert("RGB")
     k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
     # Eyes, a mouth or spots drawn inside the outline without touching it are separate
-    # components: keep everything inside the drawing's filled silhouette, not just the outline.
+    # components. Keep everything inside the drawing's filled silhouette, and - because a
+    # close-up cut off at the panel edge has an open outline that can't be filled - any
+    # piece lying within the drawing's box that doesn't touch the crop edge (a sliver of
+    # the neighbouring pose always does).
     main = (lab == k).astype(np.uint8)
     flood = np.pad(main, 1)
     cv2.floodFill(flood, None, (0, 0), 2)
     keep = (main > 0) | (flood[1:-1, 1:-1] == 0)
+    mx, my, mw, mh = st[k, :4]
+    H, W = lab.shape
+    for j in range(1, n):
+        x, y, w, h = st[j, :4]
+        if j != k and x >= mx and y >= my and x + w <= mx + mw and y + h <= my + mh \
+                and x > 0 and y > 0 and x + w < W and y + h < H:
+            keep |= lab == j
     out = np.where(keep[..., None], a, 255).astype(np.uint8)
     x, y, w, h = st[k, :4]
     out = out[y:y + h, x:x + w]
