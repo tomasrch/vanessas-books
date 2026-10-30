@@ -206,6 +206,82 @@ def _queue_position(slug: str) -> int | None:
     return q.index(slug) + 1 if slug in q else None
 
 
+RATE = "coloring:train:rate:"     # first (time, step) the app saw for a run, for the ETA
+
+
+def _eta(key: str, p: dict) -> int | None:
+    """Seconds left, from the step rate since the app first saw this run. The trainer
+    doesn't record a start time, and restarting it would kill a running job."""
+    try:
+        step, total = int(p.get("step", 0)), int(p.get("total", 0))
+    except ValueError:
+        return None
+    if p.get("stage") != "training" or not total:
+        return None
+    seen = r.hgetall(RATE + key)
+    if not seen or int(seen.get("total", 0)) != total or int(seen.get("step", 0)) > step:
+        r.hset(RATE + key, mapping={"t": time.time(), "step": step, "total": total})
+        r.expire(RATE + key, 2 * 86400)
+        return None
+    done, spent = step - int(seen["step"]), time.time() - float(seen["t"])
+    return round((total - step) * spent / done) if done >= 20 else None
+
+
+def _training_on_gpus() -> dict[int, str]:
+    """GPU index -> trigger of the training running on it (read from run.py's config path)."""
+    import pynvml
+    out = {}
+    pynvml.nvmlInit()
+    for i in config.TRAIN_GPUS:
+        for proc in pynvml.nvmlDeviceGetComputeRunningProcesses(pynvml.nvmlDeviceGetHandleByIndex(i)):
+            try:
+                cmd = Path(f"/proc/{proc.pid}/cmdline").read_bytes().split(b"\0")
+            except OSError:
+                continue
+            if b"run.py" in cmd and cmd.index(b"run.py") + 1 < len(cmd):
+                out[i] = Path(cmd[cmd.index(b"run.py") + 1].decode()).stem
+    return out
+
+
+@app.get("/api/training", dependencies=[Depends(require_login)])
+def training():
+    """What is training or waiting to, each group's state, and room on the training GPUs."""
+    import pynvml
+    queue = r.lrange(QUEUE, 0, -1)
+    chars = store.list_characters()
+    names = {m["slug"]: m["name"] for m in chars}
+    jobs = [{"key": m["slug"], "group": False, "names": [m["name"]], "trigger": m["trigger"], "status": m["status"]}
+            for m in chars if m["status"] in ("queued", "training")]
+    groups = []
+    for cm in store.list_casts():
+        members = [names.get(s, s) for s in cm["members"]]
+        groups.append({"members": cm["members"], "names": members,
+                       "status": "current" if store.cast_is_current(cm) else cm["status"]})
+        if cm["status"] in ("queued", "training"):
+            jobs.append({"key": f"cast:{cm['id']}", "group": True, "names": members,
+                         "trigger": store.cast_trigger(cm["id"]), "status": cm["status"]})
+    try:
+        on_gpu = _training_on_gpus()
+    except pynvml.NVMLError:
+        on_gpu = {}
+    for j in jobs:
+        p = r.hgetall(PROGRESS + j["key"])
+        j.update(stage=p.get("stage"), step=int(p.get("step") or 0), total=int(p.get("total") or 0),
+                 eta=_eta(j["key"], p), position=queue.index(j["key"]) + 1 if j["key"] in queue else None,
+                 gpu=next((g for g, trig in on_gpu.items() if trig == j["trigger"]), None))
+    gpus = []
+    try:
+        pynvml.nvmlInit()
+        for i in config.TRAIN_GPUS:
+            mem = pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(i))
+            gpus.append({"index": i, "free_gb": round(mem.free / 2**30, 1),
+                         "training": next((j["names"] for j in jobs if j["gpu"] == i), None)})
+    except pynvml.NVMLError:
+        pass
+    jobs.sort(key=lambda j: (j["gpu"] is None, j["status"] != "training", j["position"] or 0))
+    return {"jobs": jobs, "groups": groups, "gpus": gpus, "need_gb": config.TRAIN_MIN_FREE_GB}
+
+
 def _char(slug: str) -> dict:
     try:
         m = store.get_character(slug)

@@ -182,6 +182,10 @@ def cast_for(slugs) -> dict:
     return m
 
 
+def list_casts() -> list[dict]:
+    return [m for p in sorted((config.ROOT / "casts").glob("*.json")) if (m := _read_json(p))]
+
+
 def cast_lora(cid: str) -> Path:
     return config.LORAS / f"{cast_trigger(cid)}.safetensors"
 

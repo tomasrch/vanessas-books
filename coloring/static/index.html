@@ -93,6 +93,17 @@
   .langsw { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
   .pose .bw { position: absolute; right: 3px; bottom: 3px; font-size: 9px; font-weight: 700; background: var(--ink); color: #fff; border-radius: 4px; padding: 0 3px; }
   .note { font-size: 12px; color: var(--warn); }
+  .status { border-left: 6px solid var(--sun); }
+  .status h2 { margin: 0 0 8px; font-size: 18px; }
+  .status .job { margin: 10px 0; }
+  .status .job b { font-weight: 600; }
+  .status .gpus { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .status .gpus span::before { content: "●"; margin-right: 6px; }
+  .status .gpus .train::before { color: var(--accent); } .status .gpus .free::before { color: var(--ok); }
+  .status .gpus .busy::before { color: var(--warn); }
+  .groupnote { margin: 4px 0 12px; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+  .groupnote.new, .groupnote.wait { background: var(--warn-soft); color: var(--warn); }
+  .groupnote.ok { background: var(--ok-soft); color: var(--ok); }
   @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
                               header h1 small { display: none; } main { padding: 16px 12px 48px; } }
 </style>
@@ -123,12 +134,15 @@
 </header>
 <main>
 
+<div id="trainStatus" class="card status" hidden aria-live="polite"></div>
+
 <section id="tab-make" class="on">
   <div class="card">
     <h2 data-i18n="makeTitle">Crear una página para colorear</h2>
     <p class="hint" data-i18n="makeHint"></p>
     <label data-i18n="sceneChars">Personajes en la escena</label>
     <div id="pick" class="pick"></div>
+    <div id="groupNote" class="groupnote" hidden></div>
     <label for="scene" data-i18n="sceneWhat">¿Qué pasa en la escena?</label>
     <textarea id="scene" maxlength="600" data-i18n-ph="scenePh"></textarea>
     <label data-i18n="whatToMake">Qué crear</label>
@@ -232,6 +246,21 @@ const I18N = {
     redo: "Repetir", confirmPageRemove: "¿Quitar esta página?",
     castUsed: "Grupo entrenado junto: cada personaje se mantiene distinto.",
     castLearning: "Este grupo se está entrenando junto; repite la página más tarde y saldrá mejor.",
+    statusTitle: "Entrenamiento en curso",
+    jobLearning: (who, p, eta) => `<b>${who}</b>: aprendiendo… ${p}%${eta ? ` · faltan unos ${eta}` : ""}`,
+    jobWaiting: who => `<b>${who}</b>: esperando que una tarjeta gráfica tenga espacio`,
+    jobQueued: (who, n) => `<b>${who}</b>: en fila para entrenar${n ? ` (#${n})` : ""}`,
+    jobPreparing: who => `<b>${who}</b>: preparando…`,
+    groupOf: "grupo",
+    gpuTraining: (i, who) => `Tarjeta ${i}: entrenando ${who}`,
+    gpuFree: i => `Tarjeta ${i}: libre`,
+    gpuBusy: i => `Tarjeta ${i}: ocupada con otras tareas`,
+    statusHint: "Crear más páginas no ayuda al entrenamiento: cada página es un intento nuevo, y borrar una no cambia nada. Mientras un grupo se entrena, sus páginas pueden salir con caras o personajes incompletos; cuando termine, pulsa Repetir.",
+    groupNew: "Combinación nueva: estos personajes todavía no se han entrenado juntos. Crea solo 1 versión ahora; eso pone al grupo en fila para entrenar (unas 3 horas). Hasta entonces las caras o los personajes pueden salir incompletos.",
+    groupQueued: "Este grupo está en fila para entrenar juntos. Las páginas saldrán mejor cuando termine; mira el avance arriba.",
+    groupLearning: (p, eta) => `Este grupo se está entrenando junto (${p}%${eta ? `, faltan unos ${eta}` : ""}). Las páginas saldrán mejor cuando termine.`,
+    groupReady: "Este grupo ya está entrenado junto: cada personaje se mantiene distinto.",
+    hm: (h, m) => h ? `${h} h ${m} min` : `${m} min`,
   },
   en: {
     brandTitle: "Vanessa's Coloring Books", brandSub: "Puerto Rican Animals & Lore",
@@ -273,6 +302,21 @@ const I18N = {
     redo: "Redo", confirmPageRemove: "Remove this page?",
     castUsed: "Group trained together: each character stays distinct.",
     castLearning: "This group is learning together - redo the page later for a better result.",
+    statusTitle: "Training in progress",
+    jobLearning: (who, p, eta) => `<b>${who}</b>: learning… ${p}%${eta ? ` · about ${eta} left` : ""}`,
+    jobWaiting: who => `<b>${who}</b>: waiting for room on a graphics card`,
+    jobQueued: (who, n) => `<b>${who}</b>: in line to train${n ? ` (#${n})` : ""}`,
+    jobPreparing: who => `<b>${who}</b>: preparing…`,
+    groupOf: "group",
+    gpuTraining: (i, who) => `Card ${i}: training ${who}`,
+    gpuFree: i => `Card ${i}: free`,
+    gpuBusy: i => `Card ${i}: busy with other work`,
+    statusHint: "Making more pages doesn't help training: each page is a fresh try, and deleting one changes nothing. While a group is training, its pages may come out with missing faces or characters; when it's done, press Redo.",
+    groupNew: "New combination: these characters haven't been trained together yet. Make just 1 version now; that puts the group in line to train (about 3 hours). Until then faces or characters may come out incomplete.",
+    groupQueued: "This group is in line to train together. Pages will come out better once it's done; see the progress above.",
+    groupLearning: (p, eta) => `This group is training together (${p}%${eta ? `, about ${eta} left` : ""}). Pages will come out better once it's done.`,
+    groupReady: "This group is trained together: each character stays distinct.",
+    hm: (h, m) => h ? `${h} h ${m} min` : `${m} min`,
   },
 };
 let lang = "es";
@@ -290,13 +334,14 @@ function applyLang() {
 document.querySelectorAll("[data-lang-toggle]").forEach(b => b.onclick = () => {
   lang = lang === "es" ? "en" : "es";
   try { localStorage.setItem("lang", lang); } catch {}
-  applyLang(); drawChars(); drawPick(); drawPages();
+  applyLang(); drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote();
 });
 applyLang();
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let characters = [], pages = [], picked = new Set(), timer = null;
+let training = {jobs: [], groups: [], gpus: []};
 const dateStr = s => new Date(s * 1000).toLocaleDateString(lang === "es" ? "es-PR" : "en-US");
 
 async function api(path, opts = {}) {
@@ -336,9 +381,13 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
 
 async function refresh() {
   clearTimeout(timer);
-  try { [characters, pages] = await Promise.all([api("/api/characters"), api("/api/pages")]); } catch { return; }
-  drawChars(); drawPick(); drawPages();
-  const busy = characters.some(c => ["reading","queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status));
+  try {
+    [characters, pages, training] = await Promise.all([api("/api/characters"), api("/api/pages"),
+      api("/api/training").catch(() => ({jobs: [], groups: [], gpus: []}))]);
+  } catch { return; }
+  drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote();
+  const busy = characters.some(c => ["reading","queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status))
+    || training.jobs.length > 0;
   timer = setTimeout(refresh, busy ? 5000 : 30000);
 }
 
@@ -406,7 +455,49 @@ function drawPick() {
     i.checked ? picked.add(i.value) : picked.delete(i.value);
     if (picked.size > 4) { picked.delete(i.value); i.checked = false; alert(t("max4")); }
     i.closest("label").classList.toggle("on", i.checked);
+    drawGroupNote(true);
   });
+}
+
+const pctOf = j => j.total > 0 ? Math.round(100 * j.step / j.total) : 0;
+const etaOf = s => s == null ? "" : t("hm", Math.floor(s / 3600), Math.max(1, Math.round((s % 3600) / 60)));
+const whoOf = j => esc(j.names.join(" + ")) + (j.group ? ` (${t("groupOf")})` : "");
+
+function drawStatus() {
+  const box = $("#trainStatus"), jobs = training.jobs || [];
+  box.hidden = !jobs.length;
+  if (!jobs.length) return;
+  const lines = jobs.map(j => {
+    let line;
+    if (j.status === "training" && j.stage === "training") line = t("jobLearning", whoOf(j), pctOf(j), etaOf(j.eta));
+    else if (j.status === "training" && (j.stage || "").startsWith("waiting")) line = t("jobWaiting", whoOf(j));
+    else if (j.status === "training") line = t("jobPreparing", whoOf(j));
+    else line = t("jobQueued", whoOf(j), j.position);
+    const bar = j.status === "training" && j.stage === "training" ? `<div class="bar"><div style="width:${pctOf(j)}%"></div></div>` : "";
+    return `<div class="job">${line}${bar}</div>`;
+  }).join("");
+  const gpus = (training.gpus || []).map(g => {
+    const n = g.index + 1;
+    if (g.training) return `<span class="train">${t("gpuTraining", n, esc(g.training.join(" + ")))}</span>`;
+    return g.free_gb >= training.need_gb ? `<span class="free">${t("gpuFree", n)}</span>` : `<span class="busy">${t("gpuBusy", n)}</span>`;
+  }).join("");
+  box.innerHTML = `<h2>${t("statusTitle")}</h2>${lines}<div class="gpus">${gpus}</div><p class="hint" style="margin-top:12px">${t("statusHint")}</p>`;
+}
+
+// For 2+ characters: say whether they are trained as a group yet. `changed` = she just
+// changed the selection, so a new combination also drops "how many versions" to 1.
+function drawGroupNote(changed = false) {
+  const box = $("#groupNote");
+  if (picked.size < 2) { box.hidden = true; return; }
+  const key = [...picked].sort().join("+");
+  const g = (training.groups || []).find(x => [...x.members].sort().join("+") === key);
+  const job = g && (training.jobs || []).find(j => j.group && j.names.join("+") === g.names.join("+"));
+  let cls = "new", text = t("groupNew");
+  if (g && g.status === "current") { cls = "ok"; text = t("groupReady"); }
+  else if (job && job.status === "training" && job.stage === "training") { cls = "wait"; text = t("groupLearning", pctOf(job), etaOf(job.eta)); }
+  else if (g && ["queued", "training"].includes(g.status)) { cls = "wait"; text = t("groupQueued"); }
+  if (changed && cls !== "ok") $("#vars").value = "1";
+  box.className = `groupnote ${cls}`; box.textContent = text; box.hidden = false;
 }
 
 document.querySelectorAll('input[name="kind"]').forEach(r => r.onchange = () =>
