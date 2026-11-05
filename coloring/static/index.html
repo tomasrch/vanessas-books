@@ -104,6 +104,22 @@
   .groupnote { margin: 4px 0 12px; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
   .groupnote.new, .groupnote.wait { background: var(--warn-soft); color: var(--warn); }
   .groupnote.ok { background: var(--ok-soft); color: var(--ok); }
+  .fb { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .fb button { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  .fb button.good.on { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); font-weight: 600; }
+  .fb button.bad.on { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); font-weight: 600; }
+  .fb .linkish { border: 0; background: none; color: var(--accent); padding: 0; }
+  .fbtext { font-size: 13px; color: var(--muted); }
+  .fbtext.bad { color: var(--bad); } .fbtext.good { color: var(--ok); }
+  .fixed { font-size: 12px; color: var(--accent); }
+  .fbsum { font-size: 13px; margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #f7f3ea; }
+  .fbsum ul { margin: 4px 0 0; padding-left: 18px; } .fbsum q { color: var(--muted); }
+  #fbDialog { width: min(480px, calc(100% - 32px)); }
+  .checks label { display: flex; gap: 8px; align-items: center; font-weight: 500; margin: 6px 0; }
+  .ratings { display: flex; gap: 10px; } .ratings label { margin: 0; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+  .pagesbar { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .pagesbar select { width: auto; }
+  h2.sub { margin: 26px 0 12px; }
   @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
                               header h1 small { display: none; } main { padding: 16px 12px 48px; } }
 </style>
@@ -161,6 +177,9 @@
 </section>
 
 <section id="tab-pages">
+  <div class="pagesbar"><label for="pfilter" style="margin:0" data-i18n="show">Mostrar</label>
+    <select id="pfilter"><option value="all" data-i18n="fAll"></option><option value="unrated" data-i18n="fUnrated"></option>
+      <option value="good" data-i18n="fGood"></option><option value="bad" data-i18n="fBad"></option></select></div>
   <div id="gallery" class="gallery"></div>
 </section>
 
@@ -181,6 +200,8 @@
     </form>
   </div>
   <div id="chars" class="chars"></div>
+  <div id="groupsBox" hidden><h2 class="sub" data-i18n="groupsTitle">Grupos</h2>
+    <p class="hint" data-i18n="groupsHint"></p><div id="groups" class="chars"></div></div>
 </section>
 
 </main>
@@ -201,6 +222,31 @@
       <button class="secondary" type="button" id="pwCancel" data-i18n="cancel">Cancelar</button>
       <span id="pwMsg" class="msg"></span>
     </div>
+  </form>
+</dialog>
+
+<dialog id="fbDialog">
+  <h2 data-i18n="fbTitle">¿Qué tal salió esta página?</h2>
+  <form id="fbForm">
+    <div class="ratings">
+      <label><input type="radio" name="rating" value="good"> <span data-i18n="fbGood"></span></label>
+      <label><input type="radio" name="rating" value="bad"> <span data-i18n="fbBad"></span></label>
+    </div>
+    <div id="fbBadPart">
+      <label data-i18n="fbWhat">¿Qué está mal?</label>
+      <div id="fbTags" class="checks"></div>
+      <div id="fbWhoPart"><label data-i18n="fbWho">¿A quién le pasa? (si no marcas ninguno, a todos)</label><div id="fbWho" class="checks"></div></div>
+    </div>
+    <label for="fbNote" data-i18n="fbNote">Nota (opcional)</label>
+    <textarea id="fbNote" maxlength="500" data-i18n-ph="fbNotePh" style="min-height:64px"></textarea>
+    <p class="hint" id="fbHint"></p>
+    <div class="actions">
+      <button class="primary" type="submit" data-i18n="save">Guardar</button>
+      <button class="secondary" type="button" id="fbCancel" data-i18n="cancel">Cancelar</button>
+      <span style="flex:1"></span>
+      <button class="danger" type="button" id="fbClear" data-i18n="fbClear">Quitar comentario</button>
+    </div>
+    <div id="fbMsg" class="msg err"></div>
   </form>
 </dialog>
 
@@ -255,12 +301,32 @@ const I18N = {
     gpuTraining: (i, who) => `Tarjeta ${i}: entrenando ${who}`,
     gpuFree: i => `Tarjeta ${i}: libre`,
     gpuBusy: i => `Tarjeta ${i}: ocupada con otras tareas`,
-    statusHint: "Crear más páginas no ayuda al entrenamiento: cada página es un intento nuevo, y borrar una no cambia nada. Mientras un grupo se entrena, sus páginas pueden salir con caras o personajes incompletos; cuando termine, pulsa Repetir.",
+    statusHint: "Crear más páginas no ayuda al entrenamiento por sí solo, y borrar una no cambia nada; marcar una página como 👍 Buena sí la añade al próximo entrenamiento. Mientras un grupo se entrena, sus páginas pueden salir con caras o personajes incompletos; cuando termine, pulsa Repetir.",
     groupNew: "Combinación nueva: estos personajes todavía no se han entrenado juntos. Crea solo 1 versión ahora; eso pone al grupo en fila para entrenar (unas 3 horas). Hasta entonces las caras o los personajes pueden salir incompletos.",
     groupQueued: "Este grupo está en fila para entrenar juntos. Las páginas saldrán mejor cuando termine; mira el avance arriba.",
     groupLearning: (p, eta) => `Este grupo se está entrenando junto (${p}%${eta ? `, faltan unos ${eta}` : ""}). Las páginas saldrán mejor cuando termine.`,
     groupReady: "Este grupo ya está entrenado junto: cada personaje se mantiene distinto.",
     hm: (h, m) => h ? `${h} h ${m} min` : `${m} min`,
+    tags: {eyes_face: "Faltan ojos o cara", extra_parts: "Partes de más (patas, brazos, cabezas)", missing_parts: "Le faltan partes del cuerpo",
+           wrong_look: "No se parece al personaje", blended: "Personajes mezclados", char_missing: "Falta un personaje",
+           not_bw: "Tiene gris o color", text: "Tiene letras o números", scene_wrong: "La escena no es lo que pedí", other: "Otro (explícalo en la nota)"},
+    good: "👍 Buena", problem: "Tiene un problema", change: "cambiar", addNote: "añadir nota",
+    fbTitle: "¿Qué tal salió esta página?", fbGood: "👍 Buena: úsala para entrenar", fbBad: "Tiene un problema",
+    fbWhat: "¿Qué está mal?", fbWho: "¿A quién le pasa? (si no marcas ninguno, a todos)", fbNote: "Nota (opcional)",
+    fbNotePh: "Por ejemplo: al coquí le salió una pata de más", fbClear: "Quitar comentario",
+    fbHintGood: "Las páginas buenas se añaden al próximo entrenamiento de este personaje o grupo.",
+    fbHintBad: "Las próximas páginas de este personaje o grupo intentarán corregirlo. Se corrige de verdad al entrenar otra vez con páginas buenas.",
+    fbNeed: "Marca qué está mal o escribe una nota.",
+    fbIsGood: "Buena: se usará para entrenar", fbIsBad: list => `Problema: ${list}`,
+    fixedNote: list => `Con correcciones: ${list}`,
+    show: "Mostrar", fAll: "Todas", fUnrated: "Sin revisar", fGood: "Buenas", fBad: "Con problemas", noneHere: "No hay páginas aquí.",
+    sumApproved: (n, nw) => `${n} página${n === 1 ? "" : "s"} buena${n === 1 ? "" : "s"}${nw ? ` (${nw} nueva${nw === 1 ? "" : "s"} desde el último entrenamiento)` : ""}`,
+    sumProblems: n => `Problemas desde el último entrenamiento (${n} página${n === 1 ? "" : "s"}):`,
+    trainWith: n => `Entrenar otra vez con ${n} página${n === 1 ? "" : "s"} buena${n === 1 ? "" : "s"}`,
+    groupsTitle: "Grupos", groupsHint: "Personajes que se entrenan juntos para salir bien en la misma página.",
+    gst: {current: "Listo", new: "Sin entrenar", queued: "En espera", training: "Entrenando", ready: "Desactualizado", failed: "Falló"},
+    trainGroup: "Entrenar el grupo otra vez",
+    confirmGroup: n => `¿Entrenar al grupo ${n} otra vez? Tarda unas 3 horas.`,
   },
   en: {
     brandTitle: "Vanessa's Coloring Books", brandSub: "Puerto Rican Animals & Lore",
@@ -311,12 +377,32 @@ const I18N = {
     gpuTraining: (i, who) => `Card ${i}: training ${who}`,
     gpuFree: i => `Card ${i}: free`,
     gpuBusy: i => `Card ${i}: busy with other work`,
-    statusHint: "Making more pages doesn't help training: each page is a fresh try, and deleting one changes nothing. While a group is training, its pages may come out with missing faces or characters; when it's done, press Redo.",
+    statusHint: "Making more pages doesn't help training by itself, and deleting one changes nothing; marking a page 👍 Good adds it to the next training. While a group is training, its pages may come out with missing faces or characters; when it's done, press Redo.",
     groupNew: "New combination: these characters haven't been trained together yet. Make just 1 version now; that puts the group in line to train (about 3 hours). Until then faces or characters may come out incomplete.",
     groupQueued: "This group is in line to train together. Pages will come out better once it's done; see the progress above.",
     groupLearning: (p, eta) => `This group is training together (${p}%${eta ? `, about ${eta} left` : ""}). Pages will come out better once it's done.`,
     groupReady: "This group is trained together: each character stays distinct.",
     hm: (h, m) => h ? `${h} h ${m} min` : `${m} min`,
+    tags: {eyes_face: "Missing eyes or face", extra_parts: "Extra legs, arms or heads", missing_parts: "Missing body parts",
+           wrong_look: "Doesn't look like the character", blended: "Characters blended together", char_missing: "A character is missing",
+           not_bw: "Has grey or colour", text: "Has letters or numbers", scene_wrong: "Not the scene I asked for", other: "Other (explain in the note)"},
+    good: "👍 Good", problem: "Has a problem", change: "change", addNote: "add a note",
+    fbTitle: "How did this page come out?", fbGood: "👍 Good: use it for training", fbBad: "Has a problem",
+    fbWhat: "What is wrong?", fbWho: "Who has it? (none ticked = everyone)", fbNote: "Note (optional)",
+    fbNotePh: "For example: the coquí got an extra leg", fbClear: "Remove feedback",
+    fbHintGood: "Good pages are added to the next training of this character or group.",
+    fbHintBad: "The next pages of this character or group will try to correct it. The real fix is training again with good pages.",
+    fbNeed: "Tick what is wrong or write a note.",
+    fbIsGood: "Good: will be used for training", fbIsBad: list => `Problem: ${list}`,
+    fixedNote: list => `With corrections: ${list}`,
+    show: "Show", fAll: "All", fUnrated: "Not reviewed", fGood: "Good", fBad: "With problems", noneHere: "No pages here.",
+    sumApproved: (n, nw) => `${n} good page${n === 1 ? "" : "s"}${nw ? ` (${nw} new since the last training)` : ""}`,
+    sumProblems: n => `Problems since the last training (${n} page${n === 1 ? "" : "s"}):`,
+    trainWith: n => `Train again with ${n} good page${n === 1 ? "" : "s"}`,
+    groupsTitle: "Groups", groupsHint: "Characters trained together so they come out right on the same page.",
+    gst: {current: "Ready", new: "Not trained yet", queued: "Waiting to train", training: "Training", ready: "Out of date", failed: "Failed"},
+    trainGroup: "Train the group again",
+    confirmGroup: n => `Train the group ${n} again? It takes about 3 hours.`,
   },
 };
 let lang = "es";
@@ -334,14 +420,14 @@ function applyLang() {
 document.querySelectorAll("[data-lang-toggle]").forEach(b => b.onclick = () => {
   lang = lang === "es" ? "en" : "es";
   try { localStorage.setItem("lang", lang); } catch {}
-  applyLang(); drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote();
+  applyLang(); drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote(); drawGroups();
 });
 applyLang();
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let characters = [], pages = [], picked = new Set(), timer = null;
-let training = {jobs: [], groups: [], gpus: []};
+let training = {jobs: [], groups: [], gpus: []}, fbSum = {}, pfilter = "all", fbPage = null;
 const dateStr = s => new Date(s * 1000).toLocaleDateString(lang === "es" ? "es-PR" : "en-US");
 
 async function api(path, opts = {}) {
@@ -382,10 +468,10 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
 async function refresh() {
   clearTimeout(timer);
   try {
-    [characters, pages, training] = await Promise.all([api("/api/characters"), api("/api/pages"),
-      api("/api/training").catch(() => ({jobs: [], groups: [], gpus: []}))]);
+    [characters, pages, training, fbSum] = await Promise.all([api("/api/characters"), api("/api/pages"),
+      api("/api/training").catch(() => ({jobs: [], groups: [], gpus: []})), api("/api/feedback").catch(() => ({}))]);
   } catch { return; }
-  drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote();
+  drawChars(); drawPick(); drawPages(); drawStatus(); drawGroupNote(); drawGroups();
   const busy = characters.some(c => ["reading","queued","training"].includes(c.status)) || pages.some(p => ["queued","drawing"].includes(p.status))
     || training.jobs.length > 0;
   timer = setTimeout(refresh, busy ? 5000 : 30000);
@@ -416,10 +502,10 @@ function drawChars() {
     return `<div class="card">
       <div class="char-head"><h3>${esc(c.name)} <span class="hint">(${esc(c.kind_original || c.kind)})</span></h3><span class="badge ${c.status}">${t("st")[c.status] || c.status}</span></div>
       <div class="poses">${poses}</div>
-      <div class="hint">${line}</div>
+      <div class="hint">${line}</div>${fbBlock(fbSum[c.slug])}
       ${c.status === "training" && p.stage === "training" ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
       <div class="actions">
-        ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? t("trainAgain") : t("train")}</button>`}
+        ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? (fbSum[c.slug]?.approved_new ? t("trainWith", fbSum[c.slug].approved) : t("trainAgain")) : t("train")}</button>`}
         <a class="hint" href="/api/characters/${c.slug}/sheet" target="_blank">${t("viewSheet")}</a>
         <span class="spacer" style="flex:1"></span>
         ${busy ? "" : `<button class="danger" data-del="${c.slug}">${t("remove")}</button>`}
@@ -518,10 +604,36 @@ $("#makeBtn").onclick = async () => {
   $("#makeBtn").disabled = false;
 };
 
+const tagList = tags => (tags || []).map(x => t("tags")[x] || x).join(", ");
+
+// One character's or group's feedback: good pages, open problems, her latest notes.
+function fbBlock(s) {
+  if (!s || (!s.approved && !s.problem_pages && !s.notes.length)) return "";
+  const probs = Object.entries(s.problems).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<li>${esc(t("tags")[k] || k)} × ${n}</li>`).join("");
+  const notes = s.notes.slice(0, 3).map(n => `<li>${n.rating === "good" ? "👍" : "⚠"} <q>${esc(n.note)}</q></li>`).join("");
+  return `<div class="fbsum">${s.approved ? `<div>👍 ${t("sumApproved", s.approved, s.approved_new)}</div>` : ""}
+    ${s.problem_pages ? `<div>${t("sumProblems", s.problem_pages)}</div>${probs ? `<ul>${probs}</ul>` : ""}` : ""}
+    ${notes ? `<ul>${notes}</ul>` : ""}</div>`;
+}
+
+function fbRow(p) {
+  if (p.status !== "done") return "";
+  const fb = p.feedback;
+  let text = "";
+  if (fb?.rating === "good") text = `<span class="fbtext good">${t("fbIsGood")}</span>`;
+  if (fb?.rating === "bad") text = `<span class="fbtext bad">${esc(t("fbIsBad", tagList(fb.problems) || "…"))}</span>`;
+  const note = fb?.note ? `<div class="fbtext"><q>${esc(fb.note)}</q></div>` : "";
+  return `<div class="fb"><button class="good ${fb?.rating === "good" ? "on" : ""}" data-good="${p.id}">${t("good")}</button>
+    <button class="bad ${fb?.rating === "bad" ? "on" : ""}" data-bad="${p.id}">${t("problem")}</button>
+    ${fb ? `<button class="linkish" data-fbedit="${p.id}">${fb.note ? t("change") : t("addNote")}</button>` : ""}</div>${text ? `<div>${text}</div>` : ""}${note}`;
+}
+
 function drawPages() {
   const g = $("#gallery");
   if (!pages.length) { g.innerHTML = `<div class="empty card" style="grid-column:1/-1">${t("noPages")}</div>`; return; }
-  g.innerHTML = pages.map(p => {
+  const shown = pages.filter(p => pfilter === "all" || (pfilter === "unrated" ? p.status === "done" && !p.feedback : p.feedback?.rating === pfilter));
+  if (!shown.length) { g.innerHTML = `<div class="empty card" style="grid-column:1/-1">${t("noneHere")}</div>`; return; }
+  g.innerHTML = shown.map(p => {
     const land = p.orientation === "landscape" ? "land" : "";
     let img = '<div class="spinner"></div>';
     if (p.status === "done") img = `<a href="/api/pages/${p.id}/png" target="_blank"><img loading="lazy" src="/api/pages/${p.id}/thumb" alt=""></a>`;
@@ -530,6 +642,8 @@ function drawPages() {
     return `<div class="pagecard"><div class="img ${land}">${img}</div><div class="body">
       <div class="scene">${p.kind === "cover" ? `<span class="tag">${t("cover")}</span>` : ""}${esc(p.scene)}</div>
       <div class="who">${esc((p.names || []).join(", "))} · ${new Date(p.created * 1000).toLocaleString(lang === "es" ? "es-PR" : "en-US")}</div>${note}
+      ${p.fix_tags?.length ? `<div class="fixed">${esc(t("fixedNote", tagList(p.fix_tags)))}</div>` : ""}
+      ${fbRow(p)}
       <div class="links">${p.status === "done" ? `<a href="/api/pages/${p.id}/pdf">PDF</a><a href="/api/pages/${p.id}/png" download>PNG</a>` : `<span class="hint">${p.status === "failed" ? "" : t("drawing")}</span>`}
         ${["done","failed"].includes(p.status) ? `<button class="secondary" data-redo="${p.id}">${t("redo")}</button>` : ""}
         <span style="flex:1"></span><button class="danger" data-pdel="${p.id}">${t("remove")}</button></div></div></div>`;
@@ -540,6 +654,67 @@ function drawPages() {
   });
   g.querySelectorAll("[data-redo]").forEach(b => b.onclick = async () => {
     b.disabled = true; try { await api(`/api/pages/${b.dataset.redo}/redo`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
+  });
+  g.querySelectorAll("[data-good]").forEach(b => b.onclick = async () => {
+    const p = pages.find(x => x.id === b.dataset.good);
+    const body = p.feedback?.rating === "good" ? {rating: null} : {rating: "good"};
+    b.disabled = true; try { await saveFeedback(p.id, body); } catch (err) { alert(err.message); } refresh();
+  });
+  g.querySelectorAll("[data-bad]").forEach(b => b.onclick = () => openFeedback(b.dataset.bad, "bad"));
+  g.querySelectorAll("[data-fbedit]").forEach(b => b.onclick = () => openFeedback(b.dataset.fbedit));
+}
+$("#pfilter").onchange = e => { pfilter = e.target.value; drawPages(); };
+
+const saveFeedback = (id, body) => api(`/api/pages/${id}/feedback`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+
+function openFeedback(id, rating) {
+  const p = pages.find(x => x.id === id); if (!p) return;
+  fbPage = p; const fb = p.feedback || {};
+  rating = rating || fb.rating || "bad";
+  document.querySelectorAll('#fbForm input[name="rating"]').forEach(i => i.checked = i.value === rating);
+  const page_tags = Object.keys(t("tags")).filter(k => (p.names || []).length > 1 || !["blended", "char_missing"].includes(k));
+  $("#fbTags").innerHTML = page_tags.map(k => `<label><input type="checkbox" value="${k}" ${(fb.problems || []).includes(k) ? "checked" : ""}> ${esc(t("tags")[k])}</label>`).join("");
+  $("#fbWhoPart").hidden = (p.characters || []).length < 2;
+  $("#fbWho").innerHTML = (p.characters || []).map((s, i) => `<label><input type="checkbox" value="${s}" ${(fb.who || []).includes(s) ? "checked" : ""}> ${esc(p.names[i] || s)}</label>`).join("");
+  $("#fbNote").value = fb.note || ""; $("#fbMsg").textContent = "";
+  $("#fbClear").hidden = !p.feedback;
+  syncFb(); $("#fbDialog").showModal();
+}
+function syncFb() {
+  const bad = document.querySelector('#fbForm input[name="rating"]:checked')?.value === "bad";
+  $("#fbBadPart").hidden = !bad; $("#fbHint").textContent = t(bad ? "fbHintBad" : "fbHintGood");
+}
+document.querySelectorAll('#fbForm input[name="rating"]').forEach(i => i.onchange = syncFb);
+$("#fbCancel").onclick = () => $("#fbDialog").close();
+$("#fbClear").onclick = async () => {
+  try { await saveFeedback(fbPage.id, {rating: null}); $("#fbDialog").close(); refresh(); } catch (err) { $("#fbMsg").textContent = err.message; }
+};
+$("#fbForm").onsubmit = async e => {
+  e.preventDefault();
+  const rating = document.querySelector('#fbForm input[name="rating"]:checked')?.value || "bad";
+  const problems = rating === "bad" ? [...document.querySelectorAll("#fbTags input:checked")].map(i => i.value) : [];
+  const who = rating === "bad" ? [...document.querySelectorAll("#fbWho input:checked")].map(i => i.value) : [];
+  const note = $("#fbNote").value.trim();
+  if (rating === "bad" && !problems.length && !note) { $("#fbMsg").textContent = t("fbNeed"); return; }
+  try { await saveFeedback(fbPage.id, {rating, problems, who, note}); $("#fbDialog").close(); refresh(); }
+  catch (err) { $("#fbMsg").textContent = err.message; }
+};
+
+function drawGroups() {
+  const groups = (training.groups || []);
+  $("#groupsBox").hidden = !groups.length;
+  $("#groups").innerHTML = groups.map(g => {
+    const key = [...g.members].sort().join("+"), s = fbSum[key];
+    const busy = ["queued", "training"].includes(g.status);
+    const ready = g.members.every(m => characters.find(c => c.slug === m)?.status === "ready");
+    return `<div class="card"><div class="char-head"><h3>${esc(g.names.join(" + "))}</h3>
+      <span class="badge ${g.status === "current" ? "ready" : g.status}">${t("gst")[g.status] || g.status}</span></div>
+      ${g.trained_at ? `<div class="hint">${t("lineReady", dateStr(g.trained_at))}</div>` : ""}${fbBlock(s)}
+      ${busy || !ready || g.status === "new" ? "" : `<div class="actions"><button class="primary" data-gtrain="${g.id}" data-names="${esc(g.names.join(" + "))}">${s?.approved_new ? t("trainWith", s.approved) : t("trainGroup")}</button></div>`}</div>`;
+  }).join("");
+  $("#groups").querySelectorAll("[data-gtrain]").forEach(b => b.onclick = async () => {
+    if (!confirm(t("confirmGroup", b.dataset.names))) return;
+    b.disabled = true; try { await api(`/api/casts/${b.dataset.gtrain}/train`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
   });
 }
 

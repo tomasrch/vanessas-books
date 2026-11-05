@@ -24,7 +24,7 @@ from pathlib import Path
 import redis
 from PIL import Image
 
-from . import config, store
+from . import config, feedback, store
 from .dataset import build, build_composites, describe_pose
 from .sheet import is_color, line_art
 
@@ -194,6 +194,9 @@ def train(r: redis.Redis, slug: str) -> None:
     dataset = config.TRAIN / "datasets" / trigger
     shutil.rmtree(dataset, ignore_errors=True)
     n = build(crops, trigger, meta["kind"], dataset, poses, lines=lines)
+    approved = feedback.write_training_pages((slug,), dataset)    # pages she marked good
+    n += approved
+    log.info("%s: %d approved pages added", slug, approved)
     install_lora(run_toolkit(r, slug, meta["name"], trigger, dataset, n), store.lora_file(meta))
     meta = store.get_character(slug)
     meta.update(status="ready", trained_at=time.time(), error=None)
@@ -224,6 +227,9 @@ def train_cast(r: redis.Redis, cid: str) -> None:
         line_imgs = [l if l is not None else (line_art(c) if is_color(c) else c) for c, l in zip(crops, lines)]
         members.append({"trigger": meta["trigger"], "kind": meta["kind"], "images": line_imgs})
     n += build_composites(members, dataset / "together", count=max(30, 15 * len(members)))
+    approved = feedback.write_training_pages(cast["members"], dataset / "approved")
+    n += approved
+    log.info("cast %s: %d approved pages added", cid, approved)
     flat = dataset / "all"                       # ai-toolkit reads one folder
     flat.mkdir()
     for f in dataset.glob("*/*"):

@@ -31,7 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
 
-from . import config, page, store
+from . import config, feedback, page, store
 from .reader import read_sheet
 from .sheet import split_sheet
 from .translate import scene_to_english
@@ -255,8 +255,9 @@ def training():
     groups = []
     for cm in store.list_casts():
         members = [names.get(s, s) for s in cm["members"]]
-        groups.append({"members": cm["members"], "names": members,
-                       "status": "current" if store.cast_is_current(cm) else cm["status"]})
+        groups.append({"id": cm["id"], "members": cm["members"], "names": members,
+                       "status": "current" if store.cast_is_current(cm) else cm["status"],
+                       "trained_at": cm.get("trained_at")})
         if cm["status"] in ("queued", "training"):
             jobs.append({"key": f"cast:{cm['id']}", "group": True, "names": members,
                          "trigger": store.cast_trigger(cm["id"]), "status": cm["status"]})
@@ -383,6 +384,28 @@ def start_training(slug: str):
     return _with_progress(m)
 
 
+@app.post("/api/casts/{cid}/train", dependencies=[Depends(require_login)])
+def train_cast(cid: str):
+    """Train a group again, e.g. with the pages she approved since its last training."""
+    try:
+        cm = store.get_cast(cid)
+    except ValueError:
+        cm = None
+    if not cm:
+        raise HTTPException(404, "no such group")
+    if cm["status"] in ("queued", "training"):
+        return cm
+    for slug in cm["members"]:
+        c = store.get_character(slug)
+        if not c or c["status"] != "ready":
+            raise HTTPException(409, f"{(c or {}).get('name', slug)} must finish training first")
+    cm.update(status="queued", error=None)
+    store.save_cast(cm)
+    r.delete(PROGRESS + f"cast:{cid}")
+    r.rpush(QUEUE, f"cast:{cid}")
+    return cm
+
+
 @app.delete("/api/characters/{slug}", dependencies=[Depends(require_login)])
 def remove_character(slug: str):
     m = _char(slug)
@@ -428,6 +451,10 @@ def _names(c: dict) -> list[str]:
 
 
 def build_prompt(scene: str, chars: list[dict], style: str = config.STYLE) -> str:
+    return f"{build_scene(scene, chars)}, {style}"
+
+
+def build_scene(scene: str, chars: list[dict]) -> str:
     """Her names -> trigger + kind ("el Coquí" -> "cbk_coqui_puertorriqueno coqui frog"),
     matched without regard to accents or case. A chosen character the description
     doesn't mention is put up front so it still appears."""
@@ -448,7 +475,7 @@ def build_prompt(scene: str, chars: list[dict], style: str = config.STYLE) -> st
             missing.append(ref)
     if missing:
         text = f"{' and '.join(missing)}: {text}"
-    return f"{text}, {style}"
+    return text
 
 
 def _imagegen(body: dict) -> bytes:
@@ -508,7 +535,12 @@ def make_pages(body: PageRequest):
         raise HTTPException(400, f"not trained yet: {', '.join(not_ready)}")
     names = [n for c in chars for n in _names(c)]
     scene_en = scene_to_english(body.scene, names)       # she writes in Spanish
-    prompt = build_prompt(scene_en, chars, config.COVER_STYLE if body.kind == "cover" else config.STYLE)
+    scene_prompt = build_scene(scene_en, chars)
+    # Problems she reported on earlier pages of these characters become prompt fixes
+    # (until they are trained again).
+    fix_tags, fixes = feedback.fixes_for(chars, store.list_pages(limit=10**6))
+    style = config.COVER_STYLE if body.kind == "cover" else config.STYLE
+    prompt = ", ".join([scene_prompt, *fixes, style])
     loras, cast = [f"{config.LORA_NS}/{c['trigger']}" for c in chars], None
     if len(chars) > 1:
         # Two separately trained characters blend about half the time; a joint "cast"
@@ -524,7 +556,8 @@ def make_pages(body: PageRequest):
     out = []
     for _ in range(body.variations):
         m = store.new_page({
-            "scene": body.scene, "scene_en": scene_en, "prompt": prompt, "orientation": body.orientation,
+            "scene": body.scene, "scene_en": scene_en, "prompt": prompt, "scene_prompt": scene_prompt,
+            "fix_tags": fix_tags, "orientation": body.orientation,
             "kind": body.kind, "characters": [c["slug"] for c in chars], "names": [c["name"] for c in chars],
             "triggers": [c["trigger"] for c in chars], "loras": loras, "cast": cast, "lora_scale": 1.0,
             "seed": random.randint(0, 2**32 - 1),
@@ -550,6 +583,42 @@ def redo_page(page_id: str):
 @app.get("/api/pages", dependencies=[Depends(require_login)])
 def pages():
     return store.list_pages()
+
+
+class Feedback(BaseModel):
+    rating: str | None = Field(None, pattern="^(good|bad)$")     # None = take the feedback back
+    problems: list[str] = Field(default_factory=list, max_length=len(feedback.TAGS))
+    who: list[str] = Field(default_factory=list, max_length=config.MAX_CHARACTERS_PER_SCENE)
+    note: str = Field("", max_length=500)
+
+
+@app.put("/api/pages/{page_id}/feedback", dependencies=[Depends(require_login)])
+def page_feedback(page_id: str, body: Feedback):
+    try:
+        m = store.get_page(page_id)
+    except ValueError:
+        m = None
+    if not m:
+        raise HTTPException(404, "no such page")
+    if m["status"] != "done":
+        raise HTTPException(409, "the page isn't finished")
+    if body.rating is None:
+        m.pop("feedback", None)
+    else:
+        problems = [t for t in dict.fromkeys(body.problems) if t in feedback.TAGS]
+        if body.rating == "bad" and not problems and not body.note.strip():
+            raise HTTPException(400, "say what is wrong: tick a box or write a note")
+        m["feedback"] = {"rating": body.rating, "problems": problems if body.rating == "bad" else [],
+                         "who": [s for s in dict.fromkeys(body.who) if s in m["characters"]] if body.rating == "bad" else [],
+                         "note": body.note.strip(), "at": time.time()}
+    store.save_page(m)
+    return m
+
+
+@app.get("/api/feedback", dependencies=[Depends(require_login)])
+def feedback_summary():
+    """Per character ("slug") and group ("slugA+slugB"): approved pages and open problems."""
+    return feedback.summary(store.list_pages(limit=10**6))
 
 
 def _page_file(page_id: str, name: str, media: str, download: str | None = None):
