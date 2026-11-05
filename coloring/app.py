@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 from . import config, feedback, page, store
 from .reader import read_sheet
 from .sheet import split_sheet
-from .translate import scene_to_english
+from .translate import details_to_english, scene_to_english, suggest_detail
 from .trainer import PROGRESS, QUEUE, redis_client
 
 log = logging.getLogger("coloring-studio")
@@ -370,6 +370,21 @@ def set_poses(slug: str, body: Poses):
     return m
 
 
+class Details(BaseModel):
+    details: str = Field("", max_length=300)
+
+
+@app.put("/api/characters/{slug}/details", dependencies=[Depends(require_login)])
+def set_details(slug: str, body: Details):
+    """What the character must always be drawn with ("gafas de sol rojas, moño de rizos").
+    Added to every page prompt with this character; not used as a training caption."""
+    m = _char(slug)
+    text = " ".join(body.details.split())
+    m.update(details=text, details_en=details_to_english(text, m["name"]) if text else "")
+    store.save_character(m)
+    return _with_progress(m)
+
+
 @app.post("/api/characters/{slug}/train", dependencies=[Depends(require_login)])
 def start_training(slug: str):
     m = _char(slug)
@@ -540,7 +555,9 @@ def make_pages(body: PageRequest):
     # (until they are trained again).
     fix_tags, fixes = feedback.fixes_for(chars, store.list_pages(limit=10**6))
     style = config.COVER_STYLE if body.kind == "cover" else config.STYLE
-    prompt = ", ".join([scene_prompt, *fixes, style])
+    # Her "always draw with" details: the trigger alone drifts on clothes and accessories.
+    details = [f"{c['trigger']} {c['kind']} {c['details_en']}" for c in chars if c.get("details_en")]
+    prompt = ", ".join([scene_prompt, *details, *fixes, style])
     loras, cast = [f"{config.LORA_NS}/{c['trigger']}" for c in chars], None
     if len(chars) > 1:
         # Two separately trained characters blend about half the time; a joint "cast"
@@ -612,7 +629,23 @@ def page_feedback(page_id: str, body: Feedback):
                          "who": [s for s in dict.fromkeys(body.who) if s in m["characters"]] if body.rating == "bad" else [],
                          "note": body.note.strip(), "at": time.time()}
     store.save_page(m)
-    return m
+    return {**m, "suggestions": _suggestions(m)}
+
+
+def _suggestions(m: dict) -> list[dict]:
+    """A note about a missing or wrong feature ("faltan las gafas") -> offer to add it to
+    that character's "always draw with" details. Only when it is clear whose look it is."""
+    fb = m.get("feedback") or {}
+    if fb.get("rating") != "bad" or not fb.get("note") or not {"wrong_look", "other"} & set(fb.get("problems") or []):
+        return []
+    who = fb.get("who") or (m["characters"] if len(m["characters"]) == 1 else [])
+    if len(who) != 1:
+        return []
+    c = store.get_character(who[0])
+    feature = suggest_detail(fb["note"], c["name"]) if c else ""
+    if not feature or feature.lower() in (c.get("details") or "").lower():
+        return []
+    return [{"slug": c["slug"], "name": c["name"], "feature": feature, "details": c.get("details") or ""}]
 
 
 @app.get("/api/feedback", dependencies=[Depends(require_login)])

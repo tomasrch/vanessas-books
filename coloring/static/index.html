@@ -120,6 +120,10 @@
   .pagesbar { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
   .pagesbar select { width: auto; }
   h2.sub { margin: 26px 0 12px; }
+  .details { margin-top: 10px; } .details label { margin: 0 0 4px; font-size: 13px; }
+  .details .line { display: flex; gap: 8px; } .details input { flex: 1; padding: 7px 10px; }
+  .details button { padding: 7px 12px; }
+  .oldpage { font-size: 12px; color: var(--warn); }
   @media (max-width: 700px) { header { flex-wrap: wrap; gap: 8px; } header .brand img { height: 48px; }
                               header h1 small { display: none; } main { padding: 16px 12px 48px; } }
 </style>
@@ -326,6 +330,10 @@ const I18N = {
     groupsTitle: "Grupos", groupsHint: "Personajes que se entrenan juntos para salir bien en la misma página.",
     gst: {current: "Listo", new: "Sin entrenar", queued: "En espera", training: "Entrenando", ready: "Desactualizado", failed: "Falló"},
     trainGroup: "Entrenar el grupo otra vez",
+    alwaysWith: "Siempre dibujar con", alwaysPh: "gafas de sol rojas, moño de rizos, aretes de argolla…",
+    alwaysEn: en => `Se le pide al dibujo: “${en}”`, saved: "Guardado.",
+    suggest: name => `¿Dibujar siempre a ${name} con esto? Puedes cambiar el texto antes de aceptar.`,
+    oldPage: "Esta página se dibujó antes del último entrenamiento, así que tu comentario no cambia nada. Pulsa Repetir para ver cómo sale ahora.",
     confirmGroup: n => `¿Entrenar al grupo ${n} otra vez? Tarda unas 3 horas.`,
   },
   en: {
@@ -402,6 +410,10 @@ const I18N = {
     groupsTitle: "Groups", groupsHint: "Characters trained together so they come out right on the same page.",
     gst: {current: "Ready", new: "Not trained yet", queued: "Waiting to train", training: "Training", ready: "Out of date", failed: "Failed"},
     trainGroup: "Train the group again",
+    alwaysWith: "Always draw with", alwaysPh: "red sunglasses, curly high bun, hoop earrings…",
+    alwaysEn: en => `The drawing is asked for: “${en}”`, saved: "Saved.",
+    suggest: name => `Always draw ${name} with this? You can change the text before accepting.`,
+    oldPage: "This page was drawn before the latest training, so this feedback changes nothing. Press Redo to see how it comes out now.",
     confirmGroup: n => `Train the group ${n} again? It takes about 3 hours.`,
   },
 };
@@ -479,6 +491,8 @@ async function refresh() {
 
 function drawChars() {
   const box = $("#chars");
+  // the 5-30 s refresh redraws the cards: don't wipe what she is typing
+  if (box.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
   if (!characters.length) { box.innerHTML = `<div class="empty card">${t("noChars")}</div>`; return; }
   box.innerHTML = characters.map(c => {
     const busy = ["reading","queued","training"].includes(c.status);
@@ -502,7 +516,11 @@ function drawChars() {
     return `<div class="card">
       <div class="char-head"><h3>${esc(c.name)} <span class="hint">(${esc(c.kind_original || c.kind)})</span></h3><span class="badge ${c.status}">${t("st")[c.status] || c.status}</span></div>
       <div class="poses">${poses}</div>
-      <div class="hint">${line}</div>${fbBlock(fbSum[c.slug])}
+      <div class="hint">${line}</div>
+      <div class="details"><label for="det-${c.slug}">${t("alwaysWith")}</label>
+        <div class="line"><input id="det-${c.slug}" type="text" maxlength="300" data-details="${c.slug}" value="${esc(c.details || "")}" placeholder="${esc(t("alwaysPh"))}">
+        <button class="secondary" data-dsave="${c.slug}">${t("save")}</button></div>
+        ${c.details_en ? `<div class="hint" style="margin:4px 0 0">${esc(t("alwaysEn", c.details_en))}</div>` : ""}</div>${fbBlock(fbSum[c.slug])}
       ${c.status === "training" && p.stage === "training" ? `<div class="bar"><div style="width:${pct}%"></div></div>` : ""}
       <div class="actions">
         ${busy ? "" : `<button class="primary" data-train="${c.slug}">${c.status === "ready" ? (fbSum[c.slug]?.approved_new ? t("trainWith", fbSum[c.slug].approved) : t("trainAgain")) : t("train")}</button>`}
@@ -522,6 +540,12 @@ function drawChars() {
     if (c.status === "ready" && !confirm(t("confirmRetrain", c.name))) return;
     b.disabled = true; try { await api(`/api/characters/${c.slug}/train`, {method: "POST"}); } catch (err) { alert(err.message); } refresh();
   });
+  box.querySelectorAll("[data-dsave]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { await saveDetails(b.dataset.dsave, $(`#det-${b.dataset.dsave}`).value); } catch (err) { alert(err.message); }
+    b.disabled = false; drawChars();
+  });
+  box.querySelectorAll("[data-details]").forEach(i => i.onkeydown = e => { if (e.key === "Enter") $(`[data-dsave="${i.dataset.details}"]`).click(); });
   box.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     const c = characters.find(x => x.slug === b.dataset.del);
     if (!confirm(t("confirmRemove", c.name))) return;
@@ -622,7 +646,8 @@ function fbRow(p) {
   let text = "";
   if (fb?.rating === "good") text = `<span class="fbtext good">${t("fbIsGood")}</span>`;
   if (fb?.rating === "bad") text = `<span class="fbtext bad">${esc(t("fbIsBad", tagList(fb.problems) || "…"))}</span>`;
-  const note = fb?.note ? `<div class="fbtext"><q>${esc(fb.note)}</q></div>` : "";
+  const note = (fb?.note ? `<div class="fbtext"><q>${esc(fb.note)}</q></div>` : "")
+    + (fb?.rating === "bad" && p.created < trainedAtOf(p) ? `<div class="oldpage">${t("oldPage")}</div>` : "");
   return `<div class="fb"><button class="good ${fb?.rating === "good" ? "on" : ""}" data-good="${p.id}">${t("good")}</button>
     <button class="bad ${fb?.rating === "bad" ? "on" : ""}" data-bad="${p.id}">${t("problem")}</button>
     ${fb ? `<button class="linkish" data-fbedit="${p.id}">${fb.note ? t("change") : t("addNote")}</button>` : ""}</div>${text ? `<div>${text}</div>` : ""}${note}`;
@@ -665,6 +690,19 @@ function drawPages() {
 }
 $("#pfilter").onchange = e => { pfilter = e.target.value; drawPages(); };
 
+async function saveDetails(slug, text) {
+  const c = await api(`/api/characters/${slug}/details`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({details: text})});
+  const i = characters.findIndex(x => x.slug === slug); if (i >= 0) characters[i] = c;
+  document.activeElement?.blur?.();
+  return c;
+}
+// When the page was drawn by an older training than the current one, feedback on it changes nothing.
+function trainedAtOf(p) {
+  const cs = p.characters || [];
+  if (cs.length === 1) return characters.find(c => c.slug === cs[0])?.trained_at || 0;
+  const key = [...cs].sort().join("+");
+  return (training.groups || []).find(g => [...g.members].sort().join("+") === key)?.trained_at || 0;
+}
 const saveFeedback = (id, body) => api(`/api/pages/${id}/feedback`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
 
 function openFeedback(id, rating) {
@@ -696,8 +734,14 @@ $("#fbForm").onsubmit = async e => {
   const who = rating === "bad" ? [...document.querySelectorAll("#fbWho input:checked")].map(i => i.value) : [];
   const note = $("#fbNote").value.trim();
   if (rating === "bad" && !problems.length && !note) { $("#fbMsg").textContent = t("fbNeed"); return; }
-  try { await saveFeedback(fbPage.id, {rating, problems, who, note}); $("#fbDialog").close(); refresh(); }
-  catch (err) { $("#fbMsg").textContent = err.message; }
+  let res;
+  try { res = await saveFeedback(fbPage.id, {rating, problems, who, note}); $("#fbDialog").close(); }
+  catch (err) { $("#fbMsg").textContent = err.message; return; }
+  for (const sg of res.suggestions || []) {          // "faltan las gafas" -> add "gafas" to her details?
+    const text = prompt(t("suggest", sg.name), sg.details ? `${sg.details}, ${sg.feature}` : sg.feature);
+    if (text !== null && text.trim()) { try { await saveDetails(sg.slug, text.trim()); } catch (err) { alert(err.message); } }
+  }
+  refresh();
 };
 
 function drawGroups() {

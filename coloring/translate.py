@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 import urllib.request
 
 log = logging.getLogger("coloring-translate")
@@ -83,3 +84,51 @@ def scene_to_english(scene: str, names: list[str]) -> str:
         return en or scene
     except Exception:
         return scene
+
+
+LOOK_GLOSSARY = ("gafas / espejuelos = glasses, gafas de sol = sunglasses, aretes / pantallas = earrings, "
+                 "argollas / aretes de argolla = hoop earrings, moño = hair bun, rizos = curls, "
+                 "mochila = backpack, gorra = cap, lazo = bow, collar = necklace (only if written)")
+
+
+def details_to_english(text: str, name: str) -> str:
+    """Her "always draw with" words for a character -> an English phrase that can follow
+    the character in a prompt ("gafas de sol rojas, moño rizo" -> "wearing red sunglasses,
+    curly hair in a high bun"). '' stays ''."""
+    if not text.strip():
+        return ""
+    out = _ask(
+        f"These words describe how the cartoon character {name} must always look in a children's coloring "
+        "book. It may be Puerto Rican Spanish: " + PR_GLOSSARY + "; " + LOOK_GLOSSARY + ". Translate them "
+        "into one short English phrase that can follow the character's name, starting with 'wearing' or "
+        "'with'. Translate every item and add NOTHING that is not in the text. Reply as JSON: "
+        '{"en": "<English phrase>"}.\n\n' + text)
+    try:
+        en = json.loads(out or "")["en"].strip().rstrip(".")
+    except Exception:
+        return text
+    return (en[:1].lower() + en[1:]) if en else text     # it follows the character in the prompt
+
+
+def suggest_detail(note: str, name: str) -> str:
+    """From her note on a bad page, the part that is about how the character must ALWAYS
+    look ("faltan las gafas" -> "gafas"), in her language. '' when the note is about
+    something else (a pose, the scene, an extra leg, malformed eyes)."""
+    out = _ask(
+        f"A children's book author wrote this note about a drawing of her cartoon character {name}. "
+        "If the note says the character is missing or has wrong a PERMANENT feature of their look "
+        "(glasses, hairstyle, a hat, clothes, a backpack, earrings, colours, markings), reply with that "
+        "feature in 1 to 4 of the note's own words, without verbs. If the note is about anything else "
+        "(drawing mistakes such as malformed eyes or extra legs, the pose, the scene), reply with an empty "
+        "string. Examples: 'faltan las gafas' -> 'gafas'; 'no tiene la mochila' -> 'mochila'; "
+        "'los ojos malformados' -> ''; 'le salió una pata de más' -> ''; 'no es en la playa' -> ''. "
+        'Reply as JSON: {"feature": "<1 to 4 words, or empty>"}.\n\nNote: ' + note)
+    try:
+        feature = json.loads(out or "")["feature"].strip().strip(".")[:100]
+    except Exception:
+        return ""
+    # The small model sometimes invents a feature: keep it only if its words are in the note.
+    fold = lambda t: unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
+    words = [w for w in re.findall(r"[a-z]+", fold(feature)) if len(w) >= 4]
+    ok = words and len(feature.split()) <= 4 and all(w in fold(note) for w in words)
+    return feature if ok else ""
